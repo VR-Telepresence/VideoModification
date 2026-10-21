@@ -15,15 +15,39 @@ import helperFunctions as helper
 from predict_view import getPositionVector
 import pytorch360convert
 
-class Telepresence:
+
+class VideoParallax:
     height = 256
     width = 256
+
+
+
+    def create_writer(self):
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        fps = 30
+        return  cv2.VideoWriter(
+            "viewport.mp4",
+            fourcc,
+            fps,
+            (width, height)
+        )
 
 
     def findCap(self):
         # Establish a connection to the webcam
         for i in range(10):
             cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
+            # Videoformat setzen
+            cap.set(
+                cv2.CAP_PROP_FOURCC,
+                cv2.VideoWriter_fourcc(*"MJPG")
+            )
+
+            # 360°-Panorama aktivieren
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 2880)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1440)
+            cap.set(cv2.CAP_PROP_FPS, 30)
+
             # print(i, cap.isOpened())
             if cap.isOpened():
                 return cap
@@ -31,14 +55,32 @@ class Telepresence:
         print("Failed to find camera.")
         return None
 
-    def extract_viewport(self, frame):
-        viewport = e2p(
-            frame,
+    def extract_viewport(self, frame, yaw, pitch=0, roll=0):
+        frame_tensor = (
+                torch.from_numpy(frame)
+                .permute(2, 0, 1)  # HWC -> CHW
+                .float()
+                / 255.0
+        )
+
+        viewport_tensor = e2p(
+            frame_tensor,
             fov_deg=(90, 60), #horizontal, vertical
-            h_deg=0,  # Yaw: center
+            h_deg=yaw,  # Yaw: center
             v_deg=0,  # Pitch: center
             out_hw=(height, width),
             mode="bilinear",
+        )
+
+        viewport = (
+            viewport_tensor
+            .detach()
+            .permute(1, 2, 0)  # CHW -> HWC
+            .clamp(0, 1)
+            .mul(255)
+            .byte()
+            .cpu()
+            .numpy()
         )
         return viewport
 
@@ -53,14 +95,17 @@ class Telepresence:
 
         theta = 0
         radius = 0.06
+        yaw=0
+        writer = self.create_writer()
 
         while cap.isOpened():
             ret, frame = cap.read()
-            frame = frame[120:120 + height, 200:200 + width, :]
             # create example positions
             x = radius * np.cos(theta)
             y = radius * np.sin(theta)
             theta+=np.pi/50
+            yaw+=2
+
 
             # create parallax
             pos = {
@@ -68,13 +113,22 @@ class Telepresence:
                 "y":y,
                 "z":0,
                 "pitch":0,
-                "yaw":0,
+                "yaw":yaw,
                 "roll":0
             }
-            frame = self.create_parallax( frame, args, pos, pose_dims)
+            #frame = frame[120:120 + height, 200:200 + width, :]
+
+            viewport = self.extract_viewport(frame, yaw)
+
+
+            print(type(viewport))
+            print(viewport.shape)
+
+            viewport = self.create_parallax( viewport, args, pos, pose_dims)
 
             # show parallax to user
-            cv2.imshow("", frame)
+            cv2.imshow("", viewport)
+            writer.write(viewport)
             # wait for key
             key_val = cv2.waitKey(10) & 0XFF
 
@@ -83,6 +137,7 @@ class Telepresence:
                 break
         # Close the image show frame
         cv2.destroyAllWindows()
+        writer.release()
 
 
 
@@ -140,7 +195,8 @@ if __name__ == "__main__":
     else:
         height, width = 256, 256
 
-    pose_dims = 3 if args.dataset == "blender" else 6
+
+    pose_dims = 3 if  "blender" in args.checkpoint.lower() else 6
 
     print(f"Status: Loading Model (Resolution: {height}x{width}, Lite: {is_lite}, Pose Dims: {pose_dims})")
 
@@ -149,11 +205,11 @@ if __name__ == "__main__":
     model = helper.load_Checkpoint(args.checkpoint, model, load_cpu=True)
     model.to(params.DEVICE)
     model.eval()
-    Telepresence().create_parallax_with_cam(args, pose_dims)
+    VideoParallax().create_parallax_with_cam(args, pose_dims)
 
 
 ## start with
-# python main.py --dataset coco --checkpoint ./checkpoint/checkpoint_coco_pvsnet_lite_256x256.pth
+# python main.py  --checkpoint .\checkpoint\checkpoint_blender_pvsnet_256x256.pth
 
 
 # Dependencies
