@@ -1,5 +1,5 @@
 import sys, time, cv2
-from detector import create_detector
+from detection import create_detector
 
 path  = sys.argv[1] if len(sys.argv) > 1 else "vase.jpg"
 model = sys.argv[2] if len(sys.argv) > 2 else "yolo"

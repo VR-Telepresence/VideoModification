@@ -1,6 +1,6 @@
 # test_video.py
 import time, argparse, cv2
-from detector import create_detector
+from detection import create_detector
 
 ap = argparse.ArgumentParser()
 ap.add_argument("video")

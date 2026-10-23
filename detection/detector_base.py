@@ -32,7 +32,7 @@ class BaseDetector:
             with self.lock:
                 self.latest = res
         except Exception as e:
-            print("Detector-Fehler:", e)
+            print("Detector error:", e)
         finally:
             self.busy = False
 

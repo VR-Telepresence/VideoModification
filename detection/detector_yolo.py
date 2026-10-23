@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from ultralytics import YOLO
-from detector_base import BaseDetector
+from .detector_base import BaseDetector
 
 
 class YoloDetector(BaseDetector):
