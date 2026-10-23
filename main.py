@@ -12,6 +12,7 @@ from PIL import Image
 import parameters as params
 from models.pvsnet_model import PVSNet
 import helperFunctions as helper
+from posetracker_server import PoseServer
 from predict_view import getPositionVector
 import pytorch360convert
 
@@ -19,6 +20,9 @@ import pytorch360convert
 class VideoParallax:
     height = 256
     width = 256
+
+    def __init__(self):
+        self.pose_server = PoseServer()
 
 
 
