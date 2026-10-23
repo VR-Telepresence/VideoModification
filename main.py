@@ -5,6 +5,7 @@ import argparse
 import numpy as np
 import torch
 from pytorch360convert import e2p
+from scipy.spatial.transform import rotation
 from torchvision import transforms
 from torchvision.utils import save_image
 from PIL import Image
@@ -71,7 +72,7 @@ class VideoParallax:
             frame_tensor,
             fov_deg=(90, 60), #horizontal, vertical
             h_deg=yaw,  # Yaw: center
-            v_deg=0,  # Pitch: center
+            v_deg=pitch,  # Pitch: center
             out_hw=(height, width),
             mode="bilinear",
         )
@@ -116,17 +117,10 @@ class VideoParallax:
                 "x":x,
                 "y":y,
                 "z":0,
-                "pitch":0,
-                "yaw":yaw,
-                "roll":0
             }
             #frame = frame[120:120 + height, 200:200 + width, :]
-
-            viewport = self.extract_viewport(frame, yaw)
-
-
-            print(type(viewport))
-            print(viewport.shape)
+            rotation = self.pose_server.camera_rotation()
+            viewport = self.extract_viewport(frame, rotation.yaw, rotation.pitch)
 
             viewport = self.create_parallax( viewport, args, pos, pose_dims)
 
@@ -158,7 +152,7 @@ class VideoParallax:
             Image.fromarray(frame_rgb)
         ).unsqueeze(0).to(params.DEVICE)
 
-        pos = getPositionVector(pos["x"], pos["y"], pos["z"], pos["pitch"], pos["yaw"], pos["roll"], pose_dims=pose_dims).unsqueeze(
+        pos = getPositionVector(pos["x"], pos["y"], pos["z"], 0, 0, 0, pose_dims=pose_dims).unsqueeze(
             0).to(params.DEVICE)
 
         # Inference
