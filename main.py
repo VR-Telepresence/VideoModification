@@ -227,7 +227,7 @@ if __name__ == "__main__":
 
     detector = build_detector(args)
 
-    VideoParallax().create_parallax_with_cam(args, pose_dims)
+    VideoParallax().create_parallax_with_cam(args, pose_dims, detector)
 
 
 ## start with
@@ -236,4 +236,4 @@ if __name__ == "__main__":
 
 # Dependencies
 # python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
-# pip install gradio , opencv-python, random-fourier-features-pytorch, pytorch360connect
+# pip install gradio , opencv-python, random-fourier-features-pytorch, pytorch360convert
