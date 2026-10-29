@@ -97,7 +97,7 @@ class VideoParallax:
 
         if cap is None:
             raise RuntimeError(
-                "Could not find camera, check access of the system to the camera. You need to run this on a Linux subsystem. Run 'ls /dev/video*'. If here is no such directory, there is no camera available to Linux. If you run this project in a Linux subsystem, the subsystem may have no access to the camera.")
+                "Could not find camera, check access of the system to the camera.")
 
         theta = 0
         radius = 0.06
@@ -236,4 +236,4 @@ if __name__ == "__main__":
 
 # Dependencies
 # python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
-# pip install gradio , opencv-python, random-fourier-features-pytorch, pytorch360convert
+# pip install gradio , opencv-python, random-fourier-features-pytorch, pytorch360convert, ultralytics
