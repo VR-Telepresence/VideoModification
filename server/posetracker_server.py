@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import websockets
 
-
+from server.base_websocket_server import BaseWebsocketServer
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ class PosRotation:
 
 
 
-class PoseServer:
+class PoseServer(BaseWebsocketServer):
     __HOST = "0.0.0.0"
     __PORT = 8765
 
@@ -40,43 +40,15 @@ class PoseServer:
         return PosRotation(self.__yaw, self.__pitch)
 
     def __init__(self):
-        #Using threading to run the server, that is getting the position data, parallely
-        self._ready = threading.Event()
+        _logger = logging.getLogger(self.__class__.__name__)
 
-        self._thread = threading.Thread(
-            target=self._run_server,
-            name="PoseServer",
-            daemon=True,
+        super().__init__(
+            host="0.0.0.0",
+            port="8765",
+            name="PoseServer"
         )
-        self._thread.start()
 
-        # Wait until server is listening or startup fails.
-        if not self._ready.wait(timeout=10):
-            raise TimeoutError("PoseServer startup timed out")
-
-
-    # ------- threading --------
-
-    def _run_server(self):
-        try:
-            asyncio.run(self.__start_server())
-        except Exception:
-            logger.exception("PoseServer stopped unexpectedly")
-        finally:
-            # Unblock constructor even if startup failed.
-            self._ready.set()
-
-    # ------- code for the actual server --------
-
-
-    async def __start_server(self):
-        print(f"[PoseServer] Starte WebSocket-Server auf ws://{self.__HOST}:{self.__PORT}...")
-        async with websockets.serve(self.__handle_pose, self.__HOST, self.__PORT):
-            self._ready.set()
-            await asyncio.Future()  # Läuft dauerhaft
-
-
-    async def __handle_pose(self, websocket):
+    async def _handler(self, websocket):
         print(f"[PoseServer] Quest 3 verbunden von {websocket.remote_address}")
         try:
             async for message in websocket:
@@ -92,6 +64,3 @@ class PoseServer:
             print("\n[PoseServer] Quest 3 getrennt.")
         except Exception as e:
             print(f"\n[PoseServer] Fehler: {e}")
-
-if __name__ == "__main__":
-    PoseServer()

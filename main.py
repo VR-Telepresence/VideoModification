@@ -1,3 +1,5 @@
+import datetime
+
 import cv2
 import os
 import argparse
@@ -13,10 +15,13 @@ from PIL import Image
 import parameters as params
 from models.pvsnet_model import PVSNet
 import helperFunctions as helper
-from posetracker_server import PoseServer
 from predict_view import getPositionVector
 import pytorch360convert
 from detection import create_detector
+
+from server.posetracker_server import PoseServer
+from server.viewport_providing_server import ViewportProvidingServer
+from time_measuring import FPSMeasuring, LatencyMeasuring
 
 
 class VideoParallax:
@@ -25,8 +30,7 @@ class VideoParallax:
 
     def __init__(self):
         self.pose_server = PoseServer()
-
-
+        self.unityServer = ViewportProvidingServer()
 
     def create_writer(self):
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
@@ -37,7 +41,6 @@ class VideoParallax:
             fps,
             (width, height)
         )
-
 
     def findCap(self):
         # Establish a connection to the webcam
@@ -90,22 +93,24 @@ class VideoParallax:
         )
         return viewport
 
-
-
     def create_parallax_with_cam(self,  args, pose_dims, detector=None ):
         cap = self.findCap()
 
         if cap is None:
             raise RuntimeError(
                 "Could not find camera, check access of the system to the camera.")
-
         theta = 0
         radius = 0.06
         yaw=0
         writer = self.create_writer()
 
+        fps_measuring = FPSMeasuring()
+        latency_measuring = LatencyMeasuring()
+
         while cap.isOpened():
+
             ret, frame = cap.read()
+            latency_measuring.start()
             # create example positions
             x = radius * np.cos(theta)
             y = radius * np.sin(theta)
@@ -128,7 +133,10 @@ class VideoParallax:
             if detector is not None:
                 detector.submit(viewport)
                 viewport = detector.draw(viewport)
-
+            fps_measuring.frame_created()
+            self.unityServer.update_frame(viewport)
+            #print(f"fps: {fps_measuring.get_fps()}")
+            #print(f"latency: {latency_measuring.timediff_seconds()}")
             # show parallax to user
             cv2.imshow("", viewport)
             writer.write(viewport)

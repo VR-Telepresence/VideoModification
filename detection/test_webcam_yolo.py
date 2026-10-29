@@ -6,9 +6,18 @@ from ultralytics import YOLO
 
 model = YOLO("yolo26n-seg.pt")
 
-cap = cv2.VideoCapture(0)
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+#cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+
+cap.set(
+    cv2.CAP_PROP_FOURCC,
+    cv2.VideoWriter_fourcc(*"MJPG")
+)
+
+# 360°-Panorama aktivieren
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 2880)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1440)
+cap.set(cv2.CAP_PROP_FPS, 30)
 
 async def handler(websocket):
     print("Unity connected!")
@@ -19,7 +28,6 @@ async def handler(websocket):
                 break
 
             results = model(frame, classes=[0], verbose=False)[0]
-
             person_polygons = []
 
             if results.masks is not None and len(results.masks) > 0:
@@ -42,13 +50,13 @@ async def handler(websocket):
             _, jpeg_bytes = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
             await websocket.send(jpeg_bytes.tobytes())
 
-            await asyncio.sleep(0.033) # ~30 FPS
+            #await asyncio.sleep(0.033) # ~30 FPS
 
     except websockets.exceptions.ConnectionClosed:
         print("Unity disconnected!")
 
 async def main():
-    async with websockets.serve(handler, "127.0.0.1", 8765):
+    async with websockets.serve(handler, "127.0.0.1", 8766):
         print("Segmentation server runs on ws://127.0.0.1:8765 ...")
         await asyncio.Future()
 
