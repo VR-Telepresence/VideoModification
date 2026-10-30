@@ -22,7 +22,6 @@ class PosRotation:
     pitch:float
 
 
-
 class PoseServer(BaseWebsocketServer):
     __HOST = "0.0.0.0"
     __PORT = 8765

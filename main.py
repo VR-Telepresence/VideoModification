@@ -1,4 +1,6 @@
 import datetime
+import queue
+import time
 
 import cv2
 import os
@@ -15,6 +17,8 @@ from PIL import Image
 import parameters as params
 from models.pvsnet_model import PVSNet
 import helperFunctions as helper
+from output_worker import OutputWorker
+from parallax_worker import ParallaxWorker
 from predict_view import getPositionVector
 import pytorch360convert
 from detection import create_detector
@@ -28,9 +32,12 @@ class VideoParallax:
     height = 256
     width = 256
 
-    def __init__(self):
+    def __init__(self, parallax_model, detector):
         self.pose_server = PoseServer()
-        self.unityServer = ViewportProvidingServer()
+        img_queue = queue.Queue()
+        self.parallax_worker = ParallaxWorker(img_queue, parallax_model)
+        self.writer = self.create_writer()
+        self.output_worker = OutputWorker(img_queue, detector, self.writer)
 
     def create_writer(self):
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
@@ -93,6 +100,10 @@ class VideoParallax:
         )
         return viewport
 
+
+
+
+
     def create_parallax_with_cam(self,  args, pose_dims, detector=None ):
         cap = self.findCap()
 
@@ -102,21 +113,18 @@ class VideoParallax:
         theta = 0
         radius = 0.06
         yaw=0
-        writer = self.create_writer()
 
-        fps_measuring = FPSMeasuring()
-        latency_measuring = LatencyMeasuring()
+
 
         while cap.isOpened():
-
+            print("mainq")
             ret, frame = cap.read()
-            latency_measuring.start()
+
             # create example positions
             x = radius * np.cos(theta)
             y = radius * np.sin(theta)
             theta+=np.pi/50
             yaw+=2
-
 
             # create parallax
             pos = {
@@ -125,35 +133,26 @@ class VideoParallax:
                 "z":0,
             }
             #frame = frame[120:120 + height, 200:200 + width, :]
-            rotation = self.pose_server.camera_rotation()
-            viewport = self.extract_viewport(frame, rotation.yaw, rotation.pitch)
 
+            rotation = self.pose_server.camera_rotation()
+
+            viewport = self.extract_viewport(frame, rotation.yaw, rotation.pitch)
+            s = datetime.datetime.now()
             viewport = self.create_parallax( viewport, args, pos, pose_dims)
 
-            if detector is not None:
-                detector.submit(viewport)
-                viewport = detector.draw(viewport)
-            fps_measuring.frame_created()
-            self.unityServer.update_frame(viewport)
-            #print(f"fps: {fps_measuring.get_fps()}")
-            #print(f"latency: {latency_measuring.timediff_seconds()}")
-            # show parallax to user
-            cv2.imshow("", viewport)
-            writer.write(viewport)
-            # wait for key
-            key_val = cv2.waitKey(10) & 0XFF
-
             # break gracefully
+            key_val = cv2.waitKey(10) & 0XFF
             if key_val == ord('q'):
                 break
         # Close the image show frame
         cv2.destroyAllWindows()
-        writer.release()
+        self.writer.release()
 
 
 
     def create_parallax(self, frame, args, pos, pose_dims):
         # Preprocess Input
+
         transform = transforms.Compose([
             transforms.Resize((height, width)),
             transforms.ToTensor()
@@ -164,25 +163,27 @@ class VideoParallax:
         img_input = transform(
             Image.fromarray(frame_rgb)
         ).unsqueeze(0).to(params.DEVICE)
+        # --- 0.001 s up
 
         pos = getPositionVector(pos["x"], pos["y"], pos["z"], 0, 0, 0, pose_dims=pose_dims).unsqueeze(
             0).to(params.DEVICE)
 
-        # Inference
-        with torch.no_grad():
-            predicted_img = model(img_input, pos)
-            predicted_img = torch.clamp(predicted_img, 0, 1)
+        self.parallax_worker.queue_img(img_input, pos)
 
-        # (1, 3, H, W) -> (H, W, 3)
-        predicted_np = predicted_img[0].squeeze(0).permute(1, 2, 0).cpu().numpy()
 
+
+        #0.01s up
+        #t0 = time.perf_counter()
+        #(1, 3, H, W) -> (H, W, 3)
+        #predicted_np = predicted_img[0].squeeze(0).permute(1, 2, 0).cpu().numpy()
         # Float [0,1] -> uint8 [0,255]
-        predicted_np = (predicted_np * 255).astype(np.uint8)
-
+        #predicted_np = (predicted_np * 255).astype(np.uint8)
         # RGB -> BGR
-        predicted_frame = cv2.cvtColor(predicted_np, cv2.COLOR_RGB2BGR)
+        #predicted_frame = cv2.cvtColor(predicted_np, cv2.COLOR_RGB2BGR)
+        #t1 = time.perf_counter()
 
-        return predicted_frame
+        #print(f"Postprocessing: {(t1 - t0) * 1000:.3f} ms")
+        #return predicted_frame
 
 def build_detector(args):
     if args.detector == "none":
@@ -235,13 +236,6 @@ if __name__ == "__main__":
 
     detector = build_detector(args)
 
-    VideoParallax().create_parallax_with_cam(args, pose_dims, detector)
+    VideoParallax(model, detector).create_parallax_with_cam(args, pose_dims)
 
 
-## start with
-# python main.py  --checkpoint .\checkpoint\checkpoint_blender_pvsnet_256x256.pth
-
-
-# Dependencies
-# python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
-# pip install gradio , opencv-python, random-fourier-features-pytorch, pytorch360convert, ultralytics

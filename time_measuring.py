@@ -14,6 +14,9 @@ class FPSMeasuring:
         self.__fps = 1 / (now - self.__last_frame).total_seconds()
         self.__last_frame=now
 
+    def print_fps(self):
+        print(f"fps: {self.get_fps()}")
+
     def get_fps(self):
         return self.__fps
 
@@ -28,5 +31,9 @@ class LatencyMeasuring:
     def timediff_seconds(self):
         now = datetime.now()
         return (now - self.__start_time).total_seconds()
+
+
+    def print_timediff(self):
+        print(f"latency: {self.timediff_seconds()}")
 
 
