@@ -49,9 +49,11 @@ class PoseServer(BaseWebsocketServer):
 
     async def _handler(self, websocket):
         print(f"[PoseServer] Quest 3 verbunden von {websocket.remote_address}")
+        print("pose1")
         try:
             async for message in websocket:
                 data = json.loads(message)
+                print("pose2")
                 if self.__t <  data.get("t", 0.0):
                     self.__x, self.__y, self.__z = data.get("x", 0.0), data.get("y", 0.0), data.get("z", 0.0)
                     self.__yaw, self.__pitch = data.get("yaw", 0.0), data.get("pitch", 0.0)

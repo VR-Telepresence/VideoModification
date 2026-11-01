@@ -14,8 +14,8 @@ class ImageJob:
     pos:torch.Tensor
 
 class ParallaxWorker:
-    def __init__(self, res_queue: Queue, model):
-        self.__res_imgs = res_queue
+    def __init__(self, handle_parallax_image, model):
+        self.__handle_parallax_image = handle_parallax_image
         self.__imgs = Queue(5)
         self.__model = model
 
@@ -40,7 +40,7 @@ class ParallaxWorker:
             with torch.no_grad():
                 predicted_img = self.__model(img, pos)
                 predicted_img = torch.clamp(predicted_img, 0, 1)
-            #torch.cuda.synchronize() # can be removed, only for time tracking relevant
+            torch.cuda.synchronize() # can be removed, only for time tracking relevant
 
 
             predicted_np = predicted_img[0].squeeze(0).permute(1, 2, 0).cpu().numpy()
@@ -49,4 +49,4 @@ class ParallaxWorker:
             # RGB -> BGR
             predicted_frame = cv2.cvtColor(predicted_np, cv2.COLOR_RGB2BGR)
 
-            self.__res_imgs.put(predicted_frame)
+            self.__handle_parallax_image(predicted_frame)

@@ -34,20 +34,11 @@ class VideoParallax:
 
     def __init__(self, parallax_model, detector):
         self.pose_server = PoseServer()
-        img_queue = queue.Queue()
-        self.parallax_worker = ParallaxWorker(img_queue, parallax_model)
-        self.writer = self.create_writer()
-        self.output_worker = OutputWorker(img_queue, detector, self.writer)
+        self.output_worker = OutputWorker(detector, width, height)
+        self.parallax_worker = ParallaxWorker(self.output_worker.add_result_image, parallax_model)
 
-    def create_writer(self):
-        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        fps = 30
-        return  cv2.VideoWriter(
-            "viewport.mp4",
-            fourcc,
-            fps,
-            (width, height)
-        )
+
+
 
     def findCap(self):
         # Establish a connection to the webcam
@@ -135,22 +126,22 @@ class VideoParallax:
             #frame = frame[120:120 + height, 200:200 + width, :]
 
             rotation = self.pose_server.camera_rotation()
-
             viewport = self.extract_viewport(frame, rotation.yaw, rotation.pitch)
-            s = datetime.datetime.now()
-            viewport = self.create_parallax( viewport, args, pos, pose_dims)
+            self.pass_frame_to_parallax_worker(viewport, args, pos, pose_dims)
 
-            # break gracefully
-            key_val = cv2.waitKey(10) & 0XFF
-            if key_val == ord('q'):
-                break
+            display_frame = self.output_worker.display_frame
+            if display_frame is not None:
+                cv2.imshow("Parallax", display_frame)
+                cv2.waitKey(1)
+
+
         # Close the image show frame
         cv2.destroyAllWindows()
         self.writer.release()
 
 
 
-    def create_parallax(self, frame, args, pos, pose_dims):
+    def pass_frame_to_parallax_worker(self, frame, args, pos, pose_dims):
         # Preprocess Input
 
         transform = transforms.Compose([
