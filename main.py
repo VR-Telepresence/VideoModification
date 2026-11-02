@@ -17,9 +17,9 @@ from models.pvsnet_model import PVSNet
 import helperFunctions as helper
 from predict_view import getPositionVector
 import pytorch360convert
-from detection import create_detector
 
 from server.posetracker_server import PoseServer
+from server.segmentation_server import SegmentationServer
 from server.viewport_providing_server import ViewportProvidingServer
 from time_measuring import FPSMeasuring, LatencyMeasuring
 
@@ -31,6 +31,7 @@ class VideoParallax:
     def __init__(self):
         self.pose_server = PoseServer()
         self.unityServer = ViewportProvidingServer()
+        self.seg_server = seg_server()
 
     def create_writer(self):
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
@@ -135,6 +136,8 @@ class VideoParallax:
                 viewport = detector.draw(viewport)
             fps_measuring.frame_created()
             self.unityServer.update_frame(viewport)
+            if self.seg_server is not None:
+                self.seg_server.update_frame(viewport)
             #print(f"fps: {fps_measuring.get_fps()}")
             #print(f"latency: {latency_measuring.timediff_seconds()}")
             # show parallax to user
@@ -184,14 +187,12 @@ class VideoParallax:
 
         return predicted_frame
 
-def build_detector(args):
+def build_server(args):
     if args.detector == "none":
         return None
     only = tuple(s.strip() for s in args.only.split(","))
-    common = dict(every_n=args.det_every, style=args.style, draw_boxes=args.boxes)
-    if args.detector == "yolo":
-        return create_detector("yolo", only=only, conf=args.det_conf,
-                               imgsz=args.det_imgsz, **common)
+    return SegmentationServer(detector=args.detector, classes=only,
+                              conf=args.det_conf, imgsz=args.det_imgsz)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Predict a single novel view using PVSNet")
@@ -201,13 +202,10 @@ if __name__ == "__main__":
     parser.add_argument("--dataset", type=str, choices=["blender", "coco"], default="coco",
                         help="Dataset type to determine pose dimensions (blender=3, coco=6)")
 
-    parser.add_argument("--detector", choices=["none", "yolo", "sam3"], default="none")
+    parser.add_argument("--detector", choices=["none", "yolo"], default="none")
     parser.add_argument("--only", type=str, default="person", help='z.B. "vase" oder "person,cup"')
     parser.add_argument("--det_conf", type=float, default=0.25)
-    parser.add_argument("--det_imgsz", type=int, default=320)
-    parser.add_argument("--det_every", type=int, default=2)
-    parser.add_argument("--style", choices=["outline", "fill"], default="outline")
-    parser.add_argument("--boxes", action="store_true")
+    parser.add_argument("--det_imgsz", type=int, default=256)
 
     args = parser.parse_args()
 
@@ -233,10 +231,8 @@ if __name__ == "__main__":
     model.to(params.DEVICE)
     model.eval()
 
-    detector = build_detector(args)
-
-    VideoParallax().create_parallax_with_cam(args, pose_dims, detector)
-
+    seg_server = build_server(args)
+    VideoParallax(build_server(args)).create_parallax_with_cam(args, pose_dims)
 
 ## start with
 # python main.py  --checkpoint .\checkpoint\checkpoint_blender_pvsnet_256x256.pth

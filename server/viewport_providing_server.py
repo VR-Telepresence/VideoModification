@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import struct
 import threading
 
 import cv2
@@ -31,8 +32,15 @@ class ViewportProvidingServer(BaseWebsocketServer):
         print("Unity connected!")
         try:
             while True:
-                _, jpeg_bytes = cv2.imencode('.jpg', self.frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
-                await websocket.send(jpeg_bytes.tobytes())
+                with self._lock:
+                    jpeg, fid = self._jpeg, self._frame_id
+
+                if jpeg is None or fid == last_sent:
+                    await asyncio.sleep(0.002)
+                    continue
+
+                await websocket.send(struct.pack(">I", fid) + jpeg)  # 4 Byte ID + JPEG
+                last_sent = fid
         except websockets.exceptions.ConnectionClosed:
             print("Unity disconnected!")
 
