@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import struct
 import threading
 
 import cv2
@@ -41,7 +42,7 @@ class ViewportProvidingServer(BaseWebsocketServer):
                 await self._frame_updated.wait()
                 TotalMeasurement.frame_sending.start_of_loop()
                 self._frame_updated.clear()
-                
+
                 _, jpeg_bytes = cv2.imencode('.jpg', self.frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
                 await websocket.send(jpeg_bytes.tobytes())
                 TotalMeasurement.frame_sending.end_of_loop()
