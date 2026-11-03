@@ -32,7 +32,7 @@ class VideoParallax:
     height = 256
     width = 256
 
-    def __init__(self, parallax_model, detector):
+    def __init__(self, args, parallax_model, detector):
         self.pose_server = PoseServer()
         self.output_worker = OutputWorker(detector, width, height)
         self.parallax_worker = ParallaxWorker(self.output_worker.add_result_image, parallax_model)
@@ -91,11 +91,7 @@ class VideoParallax:
         )
         return viewport
 
-
-
-
-
-    def create_parallax_with_cam(self,  args, pose_dims, detector=None ):
+    def create_parallax_with_cam(self,  args, pose_dims):
         cap = self.findCap()
 
         if cap is None:
@@ -235,5 +231,3 @@ if __name__ == "__main__":
     model.eval()
 
     VideoParallax(model, args).create_parallax_with_cam(args, pose_dims)
-
-
