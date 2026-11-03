@@ -108,7 +108,7 @@ class VideoParallax:
 
 
         while cap.isOpened():
-            print("mainq")
+            #print("mainq")
             ret, frame = cap.read()
 
             # create example positions
@@ -186,6 +186,17 @@ def build_detector(args):
                                imgsz=args.det_imgsz, **common)
 
 if __name__ == "__main__":
+
+    print("PyTorch:", torch.__version__)
+    print("CUDA version:", torch.version.cuda)
+    print("CUDA available:", torch.cuda.is_available())
+
+    if torch.cuda.is_available():
+        print("GPU:", torch.cuda.get_device_name(0))
+        print("Compute capability:", torch.cuda.get_device_capability(0))
+        print("Supported architectures:", torch.cuda.get_arch_list())
+
+
     parser = argparse.ArgumentParser(description="Predict a single novel view using PVSNet")
     parser.add_argument("--output", type=str, default="output_view.png", help="Output image path")
     parser.add_argument("--checkpoint", type=str, default="./checkpoint/checkpoint_coco_pvsnet_lite_256x256.pth",

@@ -32,7 +32,7 @@ class ParallaxWorker:
 
     def _run_worker(self):
         while True:
-            print("parrallax")
+            #print("parrallax")
 
             img_job = self.__imgs.get()
             img = img_job.img

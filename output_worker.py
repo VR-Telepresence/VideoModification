@@ -41,14 +41,13 @@ class OutputWorker:
 
     def _run_worker(self):
         while True:
-            print("output")
+            #print("output")
 
             predicted_img = self.__res_imgs.get()
             self.__handle_parallax_img(predicted_img)
 
 
     def __handle_parallax_img(self, predicted_img):
-        print(self.__res_imgs.qsize())
         parallax_frame = predicted_img
 
         self.display_frame = parallax_frame
