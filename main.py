@@ -28,10 +28,10 @@ class VideoParallax:
     height = 256
     width = 256
 
-    def __init__(self):
+    def __init__(self, seg_server=None):
         self.pose_server = PoseServer()
         self.unityServer = ViewportProvidingServer()
-        self.seg_server = seg_server()
+        self.seg_server = seg_server
 
     def create_writer(self):
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
@@ -94,7 +94,7 @@ class VideoParallax:
         )
         return viewport
 
-    def create_parallax_with_cam(self,  args, pose_dims, detector=None ):
+    def create_parallax_with_cam(self,  args, pose_dims):
         cap = self.findCap()
 
         if cap is None:
@@ -131,9 +131,6 @@ class VideoParallax:
 
             viewport = self.create_parallax( viewport, args, pos, pose_dims)
 
-            if detector is not None:
-                detector.submit(viewport)
-                viewport = detector.draw(viewport)
             fps_measuring.frame_created()
             self.unityServer.update_frame(viewport)
             if self.seg_server is not None:
@@ -231,7 +228,6 @@ if __name__ == "__main__":
     model.to(params.DEVICE)
     model.eval()
 
-    seg_server = build_server(args)
     VideoParallax(build_server(args)).create_parallax_with_cam(args, pose_dims)
 
 ## start with
