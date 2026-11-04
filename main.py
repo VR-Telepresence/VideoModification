@@ -25,7 +25,7 @@ from detection import create_detector
 
 from server.posetracker_server import PoseServer
 from server.viewport_providing_server import ViewportProvidingServer
-from time_measuring import FPSMeasuring, LatencyMeasuring
+from time_measuring import FPSMeasuring, LatencyMeasuring, TotalMeasurement
 
 
 class VideoParallax:
@@ -108,6 +108,7 @@ class VideoParallax:
 
 
         while cap.isOpened():
+            TotalMeasurement.frame_reading.start_of_loop()
             print("mainq")
             ret, frame = cap.read()
 
@@ -129,10 +130,15 @@ class VideoParallax:
             viewport = self.extract_viewport(frame, rotation.yaw, rotation.pitch)
             self.pass_frame_to_parallax_worker(viewport, args, pos, pose_dims)
 
+            TotalMeasurement.frame_reading.end_of_loop()
+
             display_frame = self.output_worker.display_frame
             if display_frame is not None:
                 cv2.imshow("Parallax", display_frame)
-                cv2.waitKey(1)
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    break
+
+            TotalMeasurement
 
 
         # Close the image show frame

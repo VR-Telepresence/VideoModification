@@ -6,7 +6,7 @@ import cv2
 import torch
 
 from server.viewport_providing_server import ViewportProvidingServer
-from time_measuring import FPSMeasuring, LatencyMeasuring
+from time_measuring import FPSMeasuring, LatencyMeasuring, TotalMeasurement
 
 
 class OutputWorker:
@@ -42,9 +42,10 @@ class OutputWorker:
     def _run_worker(self):
         while True:
             print("output")
-
+            TotalMeasurement.frame_postprocessing.start_of_loop()
             predicted_img = self.__res_imgs.get()
             self.__handle_parallax_img(predicted_img)
+            TotalMeasurement.frame_postprocessing.end_of_loop()
 
 
     def __handle_parallax_img(self, predicted_img):
@@ -58,7 +59,7 @@ class OutputWorker:
             self.__detector.submit(parallax_frame)
             parallax_frame = self.__detector.draw(parallax_frame)
 
-        self.fps_measuring.frame_created()
+        self.fps_measuring.result_created()
         self.fps_measuring.print_fps()
 
         self.__unityServer.update_frame(parallax_frame)

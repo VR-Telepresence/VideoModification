@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 import torch
 
+from time_measuring import TotalMeasurement
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,7 +34,7 @@ class ParallaxWorker:
     def _run_worker(self):
         while True:
             print("parrallax")
-
+            TotalMeasurement.frame_parallax_creation.start_of_loop()
             img_job = self.__imgs.get()
             img = img_job.img
             pos = img_job.pos
@@ -50,3 +51,4 @@ class ParallaxWorker:
             predicted_frame = cv2.cvtColor(predicted_np, cv2.COLOR_RGB2BGR)
 
             self.__handle_parallax_image(predicted_frame)
+            TotalMeasurement.frame_parallax_creation.end_of_loop()
