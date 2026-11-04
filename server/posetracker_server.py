@@ -7,8 +7,8 @@ from dataclasses import dataclass
 import websockets
 
 from server.base_websocket_server import BaseWebsocketServer
-
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 @dataclass(frozen=True, slots=True)
 class Pos3DData:
@@ -20,7 +20,6 @@ class Pos3DData:
 class PosRotation:
     yaw:float
     pitch:float
-
 
 
 class PoseServer(BaseWebsocketServer):
@@ -59,7 +58,7 @@ class PoseServer(BaseWebsocketServer):
                 else:
                     print("[PoseServer] Old position data discarded")
                 # Pose Ausgabe im Terminal
-                print(f"\r[Pose] Pos: ({self.__x:+.2f}, {self.__y:+.2f}, {self.__z:+.2f})m | Yaw: {self.__yaw:6.1f}° | Pitch: {self.__pitch:6.1f}° | T: {self.__t:.0f}ms", end="")
+                logger.debug(f"\r[Pose] Pos: ({self.__x:+.2f}, {self.__y:+.2f}, {self.__z:+.2f})m | Yaw: {self.__yaw:6.1f}° | Pitch: {self.__pitch:6.1f}° | T: {self.__t:.0f}ms", end="")
         except websockets.exceptions.ConnectionClosed:
             print("\n[PoseServer] Quest 3 getrennt.")
         except Exception as e:
