@@ -33,7 +33,6 @@ class ParallaxWorker:
 
     def _run_worker(self):
         while True:
-            print("parrallax")
             TotalMeasurement.frame_parallax_creation.start_of_loop()
             img_job = self.__imgs.get()
             img = img_job.img

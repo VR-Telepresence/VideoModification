@@ -7,8 +7,8 @@ from dataclasses import dataclass
 import websockets
 
 from server.base_websocket_server import BaseWebsocketServer
-
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 @dataclass(frozen=True, slots=True)
 class Pos3DData:
@@ -49,18 +49,16 @@ class PoseServer(BaseWebsocketServer):
 
     async def _handler(self, websocket):
         print(f"[PoseServer] Quest 3 verbunden von {websocket.remote_address}")
-        print("pose1")
         try:
             async for message in websocket:
                 data = json.loads(message)
-                print("pose2")
                 if self.__t <  data.get("t", 0.0):
                     self.__x, self.__y, self.__z = data.get("x", 0.0), data.get("y", 0.0), data.get("z", 0.0)
                     self.__yaw, self.__pitch = data.get("yaw", 0.0), data.get("pitch", 0.0)
                 else:
                     print("[PoseServer] Old position data discarded")
                 # Pose Ausgabe im Terminal
-                print(f"\r[Pose] Pos: ({self.__x:+.2f}, {self.__y:+.2f}, {self.__z:+.2f})m | Yaw: {self.__yaw:6.1f}° | Pitch: {self.__pitch:6.1f}° | T: {self.__t:.0f}ms", end="")
+                logger.debug(f"\r[Pose] Pos: ({self.__x:+.2f}, {self.__y:+.2f}, {self.__z:+.2f})m | Yaw: {self.__yaw:6.1f}° | Pitch: {self.__pitch:6.1f}° | T: {self.__t:.0f}ms", end="")
         except websockets.exceptions.ConnectionClosed:
             print("\n[PoseServer] Quest 3 getrennt.")
         except Exception as e:

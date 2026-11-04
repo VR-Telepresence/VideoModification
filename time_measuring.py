@@ -1,4 +1,5 @@
 import queue
+import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -7,8 +8,8 @@ from datetime import datetime, timedelta
 
 class LatencyAverager:
     def __init__(self):
-        self.__sum = 0
-        self.__COUNT = 10
+        self.__sum = 0.0
+        self.__COUNT = 10.0
         self.__last_results = queue.Queue()
 
     def add_number(self, n):
@@ -25,7 +26,7 @@ class LatencyAverager:
 
 class FPSMeasuring:
     def __init__(self):
-        self.__fps = 0
+        self.__fps = 0.0
         self.__last_result = datetime.now()
 
         self.__last_result_timestamps = queue.Queue()# only required for avg fps
@@ -34,7 +35,7 @@ class FPSMeasuring:
 
     def result_created(self):
         now = datetime.now()
-        self.__fps = 1 / (now - self.__last_result).total_seconds()
+        self.__fps = 1.0 / (now - self.__last_result).total_seconds()
         self.__last_result=now
 
         self.__last_result_timestamps.put(now)
@@ -74,10 +75,10 @@ class LatencyMeasuring:
 class SingleProcessMeasurements:
     def __init__(self):
 
-        self.avg_fps = None
-        self.fps = None
-        self.avg_latency = None
-        self.latency = None
+        self.avg_fps = 0
+        self.fps = 0
+        self.avg_latency = float('inf')
+        self.latency = float('inf')
 
         self.__latency_measurer = LatencyMeasuring()
         self.__fps_measurer = FPSMeasuring()
@@ -98,6 +99,8 @@ class SingleProcessMeasurements:
 
 
 class TotalMeasurement:
+    _summary_printed = False
+
     frame_reading = SingleProcessMeasurements()
     frame_parallax_creation = SingleProcessMeasurements()
     frame_postprocessing = SingleProcessMeasurements()
@@ -105,12 +108,45 @@ class TotalMeasurement:
 
     @classmethod
     def print_summary(cls):
+        reading = cls.frame_reading
+        parallax = cls.frame_parallax_creation
+        postproc = cls.frame_postprocessing
+        sending = cls.frame_sending
 
+        total_latency = (
+                reading.avg_latency
+                + parallax.avg_latency
+                + postproc.avg_latency
+                + sending.avg_latency
+        )
+        # Explanation for the table below:
+        # :	Starts the formatting specification
+        # >	Right-align the value
+        # 10	Use a minimum width of 10 characters
+        # .2f	Display as a float with exactly 2 decimal places
 
-        print(f"""  reading:  avg_fps:{round(cls.frame_reading.avg_fps, 4)} latency:{cls.frame_reading.avg_latency}
-                    parallax: avg_fps:{round(cls.frame_parallax_creation.avg_fps, 4)} latency:{cls.frame_parallax_creation.avg_latency}
-                    postproc: avg_fps:{round(cls.frame_postprocessing.avg_fps, 4)} latency:{cls.frame_postprocessing.avg_latency}
-                    sending:  avg_fps:{round(cls.frame_sending.avg_fps, 4)} latency:{cls.frame_sending.avg_latency}
-                    total_latency:{cls.frame_reading.avg_latency + cls.frame_parallax_creation.avg_fps + cls.frame_postprocessing.avg_fps + cls.frame_sending.avg_fps}
-                """)
+        output = f"""\
+        ╔════════════════════════════════════════════╗
+        ║             PERFORMANCE MONITOR            ║
+        ╠══════════════╦════════════╦════════════════╣
+        ║ Stage        ║ FPS        ║ Latency (ms)   ║
+        ╠══════════════╬════════════╬════════════════╣
+        ║ Reading      ║ {reading.avg_fps:>10.2f} ║ {reading.avg_latency:>14.2f} ║
+        ║ Parallax     ║ {parallax.avg_fps:>10.2f} ║ {parallax.avg_latency:>14.2f} ║
+        ║ Postproc     ║ {postproc.avg_fps:>10.2f} ║ {postproc.avg_latency:>14.2f} ║
+        ║ Sending      ║ {sending.avg_fps:>10.2f} ║ {sending.avg_latency:>14.2f} ║
+        ╠══════════════╩════════════╬════════════════╣
+        ║ TOTAL LATENCY             ║ {total_latency:>14.2f} ║
+        ╚═══════════════════════════╩════════════════╝
+        """
 
+        if cls._summary_printed:
+            # Move cursor up to the beginning of the previous table
+            sys.stdout.write(f"\033[{len(output.splitlines())}F")
+
+        # Clear each line before overwriting it
+        for line in output.splitlines():
+            sys.stdout.write("\033[2K" + line + "\n")
+
+        sys.stdout.flush()
+        cls._summary_printed = True

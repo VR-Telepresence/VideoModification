@@ -1,4 +1,5 @@
 import datetime
+import logging
 import queue
 import time
 
@@ -25,7 +26,7 @@ from detection import create_detector
 
 from server.posetracker_server import PoseServer
 from server.viewport_providing_server import ViewportProvidingServer
-from time_measuring import FPSMeasuring, LatencyMeasuring, TotalMeasurement
+from time_measuring import TotalMeasurement
 
 
 class VideoParallax:
@@ -109,7 +110,6 @@ class VideoParallax:
 
         while cap.isOpened():
             TotalMeasurement.frame_reading.start_of_loop()
-            print("mainq")
             ret, frame = cap.read()
 
             # create example positions
@@ -138,7 +138,7 @@ class VideoParallax:
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
 
-            TotalMeasurement
+            TotalMeasurement.print_summary()
 
 
         # Close the image show frame

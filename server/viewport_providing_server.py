@@ -37,7 +37,6 @@ class ViewportProvidingServer(BaseWebsocketServer):
         self._frame_updated = asyncio.Event()
         try:
             while True:
-                print("viewport")
 
                 await self._frame_updated.wait()
                 TotalMeasurement.frame_sending.start_of_loop()
