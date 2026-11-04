@@ -1,10 +1,11 @@
+import os
 import queue
 import sys
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-
-
-
+from pathlib import Path
+import time
 
 class LatencyAverager:
     def __init__(self):
@@ -131,22 +132,41 @@ class TotalMeasurement:
         ╠══════════════╦════════════╦════════════════╣
         ║ Stage        ║ FPS        ║ Latency (ms)   ║
         ╠══════════════╬════════════╬════════════════╣
-        ║ Reading      ║ {reading.avg_fps:>10.2f} ║ {reading.avg_latency:>14.2f} ║
-        ║ Parallax     ║ {parallax.avg_fps:>10.2f} ║ {parallax.avg_latency:>14.2f} ║
-        ║ Postproc     ║ {postproc.avg_fps:>10.2f} ║ {postproc.avg_latency:>14.2f} ║
-        ║ Sending      ║ {sending.avg_fps:>10.2f} ║ {sending.avg_latency:>14.2f} ║
+        ║ Reading      ║ {reading.avg_fps:>10.2f} ║ {reading.avg_latency*1000:>14.2f} ║
+        ║ Parallax     ║ {parallax.avg_fps:>10.2f} ║ {parallax.avg_latency*1000:>14.2f} ║
+        ║ Postproc     ║ {postproc.avg_fps:>10.2f} ║ {postproc.avg_latency*1000:>14.2f} ║
+        ║ Sending      ║ {sending.avg_fps:>10.2f} ║ {sending.avg_latency*1000:>14.2f} ║
         ╠══════════════╩════════════╬════════════════╣
         ║ TOTAL LATENCY             ║ {total_latency:>14.2f} ║
         ╚═══════════════════════════╩════════════════╝
         """
 
-        if cls._summary_printed:
-            # Move cursor up to the beginning of the previous table
-            sys.stdout.write(f"\033[{len(output.splitlines())}F")
+        path = Path("./temp/performance.txt")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = None
 
-        # Clear each line before overwriting it
-        for line in output.splitlines():
-            sys.stdout.write("\033[2K" + line + "\n")
+        try:
+            with tempfile.NamedTemporaryFile(
+                    mode="w",
+                    encoding="utf-8",
+                    dir=path.parent,
+                    suffix=".tmp",
+                    delete=False,
+            ) as f:
+                tmp_path = Path(f.name)
+                f.write(output)
 
-        sys.stdout.flush()
-        cls._summary_printed = True
+            for attempt in range(10):
+                try:
+                    os.replace(tmp_path, path)
+                    break
+                except PermissionError:
+                    if attempt == 9:
+                        raise
+                    time.sleep(0.05)
+
+        finally:
+            if tmp_path is not None:
+                tmp_path.unlink(missing_ok=True)
+
+

@@ -125,12 +125,12 @@ class VideoParallax:
                 "z":0,
             }
             #frame = frame[120:120 + height, 200:200 + width, :]
-
+            TotalMeasurement.frame_reading.end_of_loop()
             rotation = self.pose_server.camera_rotation()
             viewport = self.extract_viewport(frame, rotation.yaw, rotation.pitch)
             self.pass_frame_to_parallax_worker(viewport, args, pos, pose_dims)
 
-            TotalMeasurement.frame_reading.end_of_loop()
+
 
             display_frame = self.output_worker.display_frame
             if display_frame is not None:

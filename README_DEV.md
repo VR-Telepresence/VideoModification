@@ -15,6 +15,12 @@ or
 python main.py  --checkpoint .\checkpoint\checkpoint_blender_pvsnet_256x256.pth --detector yolo
 ```
 
+### Start performance monitoring
+While the main program is running, execute this in another terminal:
+```bash
+python performance_monitoring.py
+```
+
 
 
 ## Latency & Frame Rate Testing
