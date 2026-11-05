@@ -166,8 +166,6 @@ class VideoParallax:
 
         self.parallax_worker.queue_img(img_input, pos)
 
-
-
         #0.01s up
         #t0 = time.perf_counter()
         #(1, 3, H, W) -> (H, W, 3)
