@@ -32,13 +32,10 @@ class VideoParallax:
     height = 256
     width = 256
 
-    def __init__(self, args, parallax_model, detector):
+    def __init__(self, args, parallax_model):
         self.pose_server = PoseServer()
-        self.output_worker = OutputWorker(detector, width, height)
+        self.output_worker = OutputWorker(args, width, height)
         self.parallax_worker = ParallaxWorker(self.output_worker.add_result_image, parallax_model)
-
-
-
 
     def findCap(self):
         # Establish a connection to the webcam
@@ -174,13 +171,6 @@ class VideoParallax:
 
         #print(f"Postprocessing: {(t1 - t0) * 1000:.3f} ms")
         #return predicted_frame
-
-def build_server(args):
-    if args.detector == "none":
-        return None
-    only = tuple(s.strip() for s in args.only.split(","))
-    return SegmentationServer(detector=args.detector, classes=only,
-                              conf=args.det_conf, imgsz=args.det_imgsz)
 
 if __name__ == "__main__":
 
