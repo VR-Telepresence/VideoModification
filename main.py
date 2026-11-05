@@ -19,7 +19,6 @@ from predict_view import getPositionVector
 import pytorch360convert
 
 from server.posetracker_server import PoseServer
-from server.segmentation_server import SegmentationServer
 from server.viewport_providing_server import ViewportProvidingServer
 from time_measuring import FPSMeasuring, LatencyMeasuring
 
@@ -28,10 +27,13 @@ class VideoParallax:
     height = 256
     width = 256
 
-    def __init__(self, seg_server=None):
+    def __init__(self, args):
         self.pose_server = PoseServer()
-        self.unityServer = ViewportProvidingServer()
-        self.seg_server = seg_server
+        only = tuple(s.strip() for s in args.only.split(","))
+        self.unityServer = ViewportProvidingServer(
+            detector=args.detector, classes=only,
+            conf=args.det_conf, imgsz=args.det_imgsz,
+        )
 
     def create_writer(self):
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
@@ -133,8 +135,6 @@ class VideoParallax:
 
             fps_measuring.frame_created()
             self.unityServer.update_frame(viewport)
-            if self.seg_server is not None:
-                self.seg_server.update_frame(viewport)
             #print(f"fps: {fps_measuring.get_fps()}")
             #print(f"latency: {latency_measuring.timediff_seconds()}")
             # show parallax to user
@@ -184,13 +184,6 @@ class VideoParallax:
 
         return predicted_frame
 
-def build_server(args):
-    if args.detector == "none":
-        return None
-    only = tuple(s.strip() for s in args.only.split(","))
-    return SegmentationServer(detector=args.detector, classes=only,
-                              conf=args.det_conf, imgsz=args.det_imgsz)
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Predict a single novel view using PVSNet")
     parser.add_argument("--output", type=str, default="output_view.png", help="Output image path")
@@ -228,7 +221,7 @@ if __name__ == "__main__":
     model.to(params.DEVICE)
     model.eval()
 
-    VideoParallax(build_server(args)).create_parallax_with_cam(args, pose_dims)
+    VideoParallax(args).create_parallax_with_cam(args, pose_dims)
 
 ## start with
 # python main.py  --checkpoint .\checkpoint\checkpoint_blender_pvsnet_256x256.pth
