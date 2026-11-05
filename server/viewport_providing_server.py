@@ -102,9 +102,11 @@ class ViewportProvidingServer(BaseWebsocketServer):
                     jpeg, fid = self._jpeg, self._frame_id
                     seg, seg_fid = self._seg_json, self._seg_frame_id
 
-                await self._frame_updated.wait()
+                if jpeg is None or fid == last_sent:
+                    await asyncio.sleep(0.002)
+                    continue
+
                 TotalMeasurement.frame_sending.start_of_loop()
-                self._frame_updated.clear()
 
                 header = struct.pack(">III", fid, seg_fid, len(seg))
                 await websocket.send(header + seg + jpeg)

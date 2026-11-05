@@ -32,9 +32,23 @@ class VideoParallax:
     height = 256
     width = 256
 
-    def __init__(self, args, parallax_model):
+    def __init__(self, parallax_model, args):
         self.pose_server = PoseServer()
-        self.output_worker = OutputWorker(args, width, height)
+
+        only = tuple(
+            s.strip()
+            for s in args.only.split(",")
+            if s.strip()
+        )
+
+        self.unity_server = ViewportProvidingServer(
+            detector=args.detector,
+            classes=only,
+            conf=args.det_conf,
+            imgsz=args.det_imgsz,
+        )
+
+        self.output_worker = OutputWorker(self.unity_server)
         self.parallax_worker = ParallaxWorker(self.output_worker.add_result_image, parallax_model)
 
     def findCap(self):
@@ -98,8 +112,6 @@ class VideoParallax:
         radius = 0.06
         yaw=0
 
-
-
         while cap.isOpened():
             TotalMeasurement.frame_reading.start_of_loop()
             ret, frame = cap.read()
@@ -130,12 +142,9 @@ class VideoParallax:
 
             TotalMeasurement.print_summary()
 
-
         # Close the image show frame
         cv2.destroyAllWindows()
         self.writer.release()
-
-
 
     def pass_frame_to_parallax_worker(self, frame, args, pos, pose_dims):
         # Preprocess Input
