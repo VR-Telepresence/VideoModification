@@ -39,9 +39,11 @@ class ViewportProvidingServer(BaseWebsocketServer):
         try:
             while True:
 
-                await self._frame_updated.wait()
+                if jpeg is None or fid == last_sent:
+                    await asyncio.sleep(0.002)
+                    continue
+
                 TotalMeasurement.frame_sending.start_of_loop()
-                self._frame_updated.clear()
 
                 _, jpeg_bytes = cv2.imencode('.jpg', self.frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
                 await websocket.send(jpeg_bytes.tobytes())
