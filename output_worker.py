@@ -9,9 +9,9 @@ from server.viewport_providing_server import ViewportProvidingServer
 from time_measuring import TotalMeasurement
 
 
-class OutputWorker:
+class PostprocessWorker:
     def __init__(self, detector, output_width, output_height):
-        self.__res_imgs = Queue()
+        self.__res_imgs = Queue(1)
         self.__detector = detector
         self.__unityServer = ViewportProvidingServer()
         self.__writer = self.__create_writer(output_width, output_height)
@@ -39,8 +39,8 @@ class OutputWorker:
 
     def _run_worker(self):
         while True:
-            TotalMeasurement.frame_postprocessing.start_of_loop()
             predicted_img = self.__res_imgs.get()
+            TotalMeasurement.frame_postprocessing.start_of_loop()
             self.__handle_parallax_img(predicted_img)
             TotalMeasurement.frame_postprocessing.end_of_loop()
 

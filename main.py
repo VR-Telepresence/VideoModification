@@ -18,7 +18,7 @@ from PIL import Image
 import parameters as params
 from models.pvsnet_model import PVSNet
 import helperFunctions as helper
-from output_worker import OutputWorker
+from output_worker import PostprocessWorker
 from parallax_worker import ParallaxWorker
 from predict_view import getPositionVector
 import pytorch360convert
@@ -35,8 +35,8 @@ class VideoParallax:
 
     def __init__(self, parallax_model, detector):
         self.pose_server = PoseServer()
-        self.output_worker = OutputWorker(detector, width, height)
-        self.parallax_worker = ParallaxWorker(self.output_worker.add_result_image, parallax_model)
+        self.postprocess_worker = PostprocessWorker(detector, width, height)
+        self.parallax_worker = ParallaxWorker(self.postprocess_worker.add_result_image, parallax_model, width, height)
 
 
 
@@ -66,6 +66,7 @@ class VideoParallax:
     def extract_viewport(self, frame, yaw, pitch=0, roll=0):
         frame_tensor = (
                 torch.from_numpy(frame)
+                .to(params.DEVICE)
                 .permute(2, 0, 1)  # HWC -> CHW
                 .float()
                 / 255.0
@@ -80,17 +81,7 @@ class VideoParallax:
             mode="bilinear",
         )
 
-        viewport = (
-            viewport_tensor
-            .detach()
-            .permute(1, 2, 0)  # CHW -> HWC
-            .clamp(0, 1)
-            .mul(255)
-            .byte()
-            .cpu()
-            .numpy()
-        )
-        return viewport
+        return viewport_tensor
 
 
 
@@ -130,7 +121,7 @@ class VideoParallax:
             viewport = self.extract_viewport(frame, rotation.yaw, rotation.pitch)
             self.pass_frame_to_parallax_worker(viewport, args, pos, pose_dims)
 
-            display_frame = self.output_worker.display_frame
+            display_frame = self.postprocess_worker.display_frame
             if display_frame is not None:
                 cv2.imshow("Parallax", display_frame)
                 if cv2.waitKey(1) & 0xFF == ord("q"):
@@ -148,17 +139,7 @@ class VideoParallax:
     def pass_frame_to_parallax_worker(self, frame, args, pos, pose_dims):
         # Preprocess Input
 
-        transform = transforms.Compose([
-            transforms.Resize((height, width)),
-            transforms.ToTensor()
-        ])
-
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-        img_input = transform(
-            Image.fromarray(frame_rgb)
-        ).unsqueeze(0).to(params.DEVICE)
-        # --- 0.001 s up
+        img_input = frame[[2, 1, 0], :, :].unsqueeze(0)
 
         pos = getPositionVector(pos["x"], pos["y"], pos["z"], 0, 0, 0, pose_dims=pose_dims).unsqueeze(
             0).to(params.DEVICE)

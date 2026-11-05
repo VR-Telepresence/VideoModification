@@ -1,6 +1,8 @@
 import numpy as np
 import torch
 from ultralytics import YOLO
+
+from time_measuring import TotalMeasurement
 from .detector_base import BaseDetector
 
 
@@ -14,11 +16,15 @@ class YoloDetector(BaseDetector):
         self.conf, self.imgsz = conf, imgsz
 
     def infer(self, frame):
+        TotalMeasurement.frame_object_detection.start_of_loop()
         r = self.model.predict(frame, conf=self.conf, imgsz=self.imgsz,
                                classes=self.class_ids, device=self.device,
                                half=(self.device == "cuda"), verbose=False)[0]
-        return {
+        res = {
             "boxes": r.boxes.xyxy.cpu().numpy().astype(int),
             "labels": [self.model.names[int(c)] for c in r.boxes.cls.cpu().numpy()],
             "polys": [p.astype(np.int32) for p in r.masks.xy] if r.masks is not None else [],
         }
+        TotalMeasurement.frame_object_detection.end_of_loop()
+
+        return res

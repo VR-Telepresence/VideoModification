@@ -23,19 +23,68 @@ python performance_monitoring.py
 
 
 
-## Latency & Frame Rate Testing
-- tested using a RTX 4070S & AMD Ryzen 7 7800x3D
-- Reading cam : 0.002s
-- 360->viewport: 0.01
-- tranformations -> parallax -> transformation: 0.037
+## Performance drop in combination with Unity (probably tue to a lack of computational resources)
+
+#### Problem description
+During performance testing something interesting seems to happen:
+
+Once Unity is started the framerate(FPS) drops considerably by around 10fps and the latency increases. Both are bad signs. 
+
+If the imshow window is focused again the framerate increases to the previous value again and the latency is lowered (even with the unity scene still running).
+
+If the program has no imshow window, the performance drop persists with no way to increase it though focus. Only shutting the unity scene down works.
+
+Normal:
+
+        ╔════════════════════════════════════════════╗
+        ║             PERFORMANCE MONITOR            ║
+        ╠══════════════╦════════════╦════════════════╣
+        ║ Stage        ║ FPS        ║ Latency (ms)   ║
+        ╠══════════════╬════════════╬════════════════╣
+        ║ Reading      ║      24.00 ║           4.03 ║
+        ║ Parallax     ║      24.00 ║          36.92 ║
+        ║ Postproc     ║      24.00 ║           0.00 ║
+        ║ Sending      ║      24.00 ║           0.35 ║
+        ╠══════════════╩════════════╬════════════════╣
+        ║ TOTAL LATENCY             ║          41.30 ║
+        ╚═══════════════════════════╩════════════════╝
+        ╔══════════════╦════════════╦════════════════╗
+        ║ Object detect║       1.00 ║         769.12 ║
+        ╚══════════════╩════════════╩════════════════╝
+        
+
+Lowered:
+
+        ╔════════════════════════════════════════════╗
+        ║             PERFORMANCE MONITOR            ║
+        ╠══════════════╦════════════╦════════════════╣
+        ║ Stage        ║ FPS        ║ Latency (ms)   ║
+        ╠══════════════╬════════════╬════════════════╣
+        ║ Reading      ║      15.00 ║           4.32 ║
+        ║ Parallax     ║      16.00 ║          56.23 ║
+        ║ Postproc     ║      16.00 ║           0.15 ║
+        ║ Sending      ║      16.00 ║           0.42 ║
+        ╠══════════════╩════════════╬════════════════╣
+        ║ TOTAL LATENCY             ║          61.12 ║
+        ╚═══════════════════════════╩════════════════╝
+        ╔══════════════╦════════════╦════════════════╗
+        ║ Object detect║       0.00 ║        1005.07 ║
+        ╚══════════════╩════════════╩════════════════╝
 
 
+#### Likely cause
 
-### Without multithreading & Multiprocessing 
-- FPS: 16-19 -> dropof of 11-14 frames per second
-- Latency (creation of parallax): 0.04 secs (in python alone)
+The likely cause of that is that Unity is simply consuming less ressources when the imshow window is focused. 
 
-### WIth Multithreading
-- FPS (in python backend) without Unity: 27-30
-- FPS (in python backend) with Unity: 19-20
-- Question: why does the performance sink so drastically? Needs investigation. 
+Normal performance:
+
+![img_1.png](img_1.png)
+
+Lowered Performance:
+
+![img.png](img.png)
+
+
+#### Conclusion
+As of now it seems to be a problem entirely related to the hardware performance with no software fix available. 
+

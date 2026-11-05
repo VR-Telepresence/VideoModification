@@ -107,6 +107,7 @@ class TotalMeasurement:
     frame_reading = SingleProcessMeasurements()
     frame_parallax_creation = SingleProcessMeasurements()
     frame_postprocessing = SingleProcessMeasurements()
+    frame_object_detection = SingleProcessMeasurements()
     frame_sending = SingleProcessMeasurements()
 
     @classmethod
@@ -115,6 +116,7 @@ class TotalMeasurement:
         parallax = cls.frame_parallax_creation
         postproc = cls.frame_postprocessing
         sending = cls.frame_sending
+        detection = cls.frame_object_detection
 
         total_latency = (
                 reading.avg_latency
@@ -139,8 +141,11 @@ class TotalMeasurement:
         ║ Postproc     ║ {postproc.avg_fps:>10.2f} ║ {postproc.avg_latency*1000:>14.2f} ║
         ║ Sending      ║ {sending.avg_fps:>10.2f} ║ {sending.avg_latency*1000:>14.2f} ║
         ╠══════════════╩════════════╬════════════════╣
-        ║ TOTAL LATENCY             ║ {total_latency:>14.2f} ║
+        ║ TOTAL LATENCY             ║ {total_latency*1000:>14.2f} ║
         ╚═══════════════════════════╩════════════════╝
+        ╔══════════════╦════════════╦════════════════╗
+        ║ Object detect║ {detection.avg_fps:>10.2f} ║ {detection.avg_latency*1000:>14.2f} ║
+        ╚══════════════╩════════════╩════════════════╝
         """
 
         path = Path("./temp/performance.txt")
