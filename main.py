@@ -25,7 +25,7 @@ import pytorch360convert
 from detection import create_detector
 
 from server.posetracker_server import PoseServer
-from server.viewport_providing_server import ViewportProvidingServer
+from spout_sender import UnitySpoutSender
 from time_measuring import TotalMeasurement
 
 
@@ -37,9 +37,9 @@ class VideoParallax:
         self.pose_server = PoseServer()
         self.output_worker = OutputWorker(detector, width, height)
         self.parallax_worker = ParallaxWorker(self.output_worker.add_result_image, parallax_model)
-
-
-
+        
+        # Spout Sender to avoid en- and decoding JPEGs
+        self.spout_sender = UnitySpoutSender("PVSNetStream")
 
     def findCap(self):
         # Establish a connection to the webcam
@@ -92,58 +92,72 @@ class VideoParallax:
         )
         return viewport
 
-
-
-
-
-    def create_parallax_with_cam(self,  args, pose_dims, detector=None ):
+    def create_parallax_with_cam(self, args, pose_dims, detector=None):
         cap = self.findCap()
 
         if cap is None:
             raise RuntimeError(
                 "Could not find camera, check access of the system to the camera.")
+        
         theta = 0
         radius = 0.06
-        yaw=0
+        yaw = 0
 
+        try:
+            while cap.isOpened():
+                TotalMeasurement.frame_reading.start_of_loop()
+                ret, frame = cap.read()
+                
+                if not ret:
+                    continue
 
+                TotalMeasurement.frame_reading.end_of_loop()
 
-        while cap.isOpened():
-            TotalMeasurement.frame_reading.start_of_loop()
-            ret, frame = cap.read()
+                # --- Simulation ---
+                # theta = 0
+                # radius = 0.06
+                # yaw = 0
+                # x = radius * np.cos(theta)
+                # y = radius * np.sin(theta)
+                # theta += np.pi / 50
+                # yaw += 2
+                # pos = {
+                #     "x": x,
+                #     "y": y,
+                #     "z": 0,
+                # }
+                # --------------------
 
-            # create example positions
-            x = radius * np.cos(theta)
-            y = radius * np.sin(theta)
-            theta+=np.pi/50
-            yaw+=2
+                # Real pose via thread-safe snapshot
+                pose = self.pose_server.snapshot()
 
-            # create parallax
-            pos = {
-                "x":x,
-                "y":y,
-                "z":0,
-            }
-            #frame = frame[120:120 + height, 200:200 + width, :]
-            TotalMeasurement.frame_reading.end_of_loop()
-            rotation = self.pose_server.camera_rotation()
-            viewport = self.extract_viewport(frame, rotation.yaw, rotation.pitch)
-            self.pass_frame_to_parallax_worker(viewport, args, pos, pose_dims)
+                pos = {
+                    "x": pose.x,
+                    "y": pose.y,
+                    "z": pose.z,
+                }
 
-            display_frame = self.output_worker.display_frame
-            if display_frame is not None:
-                cv2.imshow("Parallax", display_frame)
-                if cv2.waitKey(1) & 0xFF == ord("q"):
-                    break
+                # Extract viewport based on pose-rotation
+                viewport = self.extract_viewport(frame, pose.yaw, -pose.pitch)
 
-            TotalMeasurement.print_summary()
+                # Parallax calculation
+                self.pass_frame_to_parallax_worker(viewport, args, pos, pose_dims)
 
+                # Send calculated solution to Unity via Spout
+                display_frame = self.output_worker.display_frame
+                if display_frame is not None:
+                    self.spout_sender.send_bgr(display_frame)
 
-        # Close the image show frame
-        cv2.destroyAllWindows()
-        self.writer.release()
+                    cv2.imshow("Parallax", display_frame)
+                    if cv2.waitKey(1) & 0xFF == ord("q"):
+                        break
 
+                TotalMeasurement.print_summary()
 
+        finally:
+            cap.release()
+            cv2.destroyAllWindows()
+            self.spout_sender.close()
 
     def pass_frame_to_parallax_worker(self, frame, args, pos, pose_dims):
         # Preprocess Input
@@ -189,8 +203,8 @@ def build_detector(args):
         return create_detector("yolo", only=only, conf=args.det_conf,
                                imgsz=args.det_imgsz, **common)
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     print("PyTorch:", torch.__version__)
     print("CUDA version:", torch.version.cuda)
     print("CUDA available:", torch.cuda.is_available())
@@ -199,7 +213,6 @@ if __name__ == "__main__":
         print("GPU:", torch.cuda.get_device_name(0))
         print("Compute capability:", torch.cuda.get_device_capability(0))
         print("Supported architectures:", torch.cuda.get_arch_list())
-
 
     parser = argparse.ArgumentParser(description="Predict a single novel view using PVSNet")
     parser.add_argument("--output", type=str, default="output_view.png", help="Output image path")
@@ -229,8 +242,7 @@ if __name__ == "__main__":
     else:
         height, width = 256, 256
 
-
-    pose_dims = 3 if  "blender" in args.checkpoint.lower() else 6
+    pose_dims = 3 if "blender" in args.checkpoint.lower() else 6
 
     print(f"Status: Loading Model (Resolution: {height}x{width}, Lite: {is_lite}, Pose Dims: {pose_dims})")
 
@@ -243,5 +255,3 @@ if __name__ == "__main__":
     detector = build_detector(args)
 
     VideoParallax(model, detector).create_parallax_with_cam(args, pose_dims)
-
-
