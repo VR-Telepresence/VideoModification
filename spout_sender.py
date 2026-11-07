@@ -4,9 +4,9 @@ import time
 import SpoutGL
 
 try:
-    from SpoutGL.enums import GL_BGRA_EXT
+    from SpoutGL.enums import GL_RGBA
 except ImportError:
-    from OpenGL.GL import GL_BGRA as GL_BGRA_EXT
+    from OpenGL.GL import GL_RGBA
 
 
 class UnitySpoutSender:
@@ -19,7 +19,7 @@ class UnitySpoutSender:
         self.sender = SpoutGL.SpoutSender()
         self.sender.setSenderName(sender_name)
 
-        self.bgra_buffer = None
+        self.rgba_buffer = None
         self.width = 0
         self.height = 0
 
@@ -27,7 +27,7 @@ class UnitySpoutSender:
 
     def _ensure_buffer(self, width, height):
         if (
-            self.bgra_buffer is not None
+            self.rgba_buffer is not None
             and self.width == width
             and self.height == height
         ):
@@ -35,11 +35,11 @@ class UnitySpoutSender:
 
         self.width = width
         self.height = height
-        self.bgra_buffer = np.empty(
+        self.rgba_buffer = np.empty(
             (height, width, 4),
             dtype=np.uint8
         )
-        print(f"[Spout] Image buffer created: {width}x{height}, BGRA8")
+        print(f"[Spout] Image buffer created: {width}x{height}, RGBA8")
 
     def send_bgr(self, frame_bgr):
         if frame_bgr is None:
@@ -49,7 +49,7 @@ class UnitySpoutSender:
             raise TypeError("frame_bgr must be a NumPy-Array")
 
         if frame_bgr.ndim != 3 or frame_bgr.shape[2] != 3:
-            raise ValueError("frame_bgr must be  H x W x 3")
+            raise ValueError("frame_bgr must be H x W x 3")
 
         if frame_bgr.dtype != np.uint8:
             frame_bgr = np.clip(frame_bgr, 0, 255).astype(np.uint8)
@@ -63,16 +63,16 @@ class UnitySpoutSender:
         # convert BGR to BGRA and write to buffer
         cv2.cvtColor(
             frame_bgr,
-            cv2.COLOR_BGR2BGRA,
-            dst=self.bgra_buffer
+            cv2.COLOR_BGR2RGBA,
+            dst=self.rgba_buffer
         )
 
         # send to Spout
         success = self.sender.sendImage(
-            self.bgra_buffer,
+            self.rgba_buffer,
             width,
             height,
-            GL_BGRA_EXT,
+            GL_RGBA,
             False,
             0
         )
