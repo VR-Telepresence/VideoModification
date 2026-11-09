@@ -14,11 +14,12 @@ from time_measuring import TotalMeasurement
 class ImageJob:
     img:torch.Tensor
     pos:torch.Tensor
+    frame_nr:int
 
 class ParallaxWorker:
     def __init__(self, handle_parallax_image, model, width, height):
         self.__handle_parallax_image = handle_parallax_image
-        self.__imgs = Queue(1)
+        self.__imgs:Queue[ImageJob] = Queue(1)
         self.__model = model
 
         self._cpu_frame = torch.empty(
@@ -35,11 +36,11 @@ class ParallaxWorker:
         )
         self._thread.start()
 
-    def queue_img(self, img, pos):
+    def queue_img(self, img, pos, frame_nr):
         if self.__imgs.full():
             self.__imgs.get()
             print("parallax worker queue is full, removed oldest image")
-        self.__imgs.put(ImageJob(img, pos))
+        self.__imgs.put(ImageJob(img, pos, frame_nr))
 
 
 
@@ -71,5 +72,6 @@ class ParallaxWorker:
             torch.cuda.current_stream().synchronize()
             predicted_frame = self._cpu_frame.numpy()
 
-            self.__handle_parallax_image(predicted_frame)
+            self.__handle_parallax_image(predicted_frame, img_job.frame_nr)
+            TotalMeasurement.frame_parallax_is_created(img_job.frame_nr)
             TotalMeasurement.frame_parallax_creation.end_of_loop()

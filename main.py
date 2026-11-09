@@ -98,10 +98,11 @@ class VideoParallax:
         yaw=0
 
 
-
+        frame_nr = 1
         while cap.isOpened():
             TotalMeasurement.frame_reading.start_of_loop()
             ret, frame = cap.read()
+            TotalMeasurement.frame_is_read(frame_nr)
 
             # create example positions
             x = radius * np.cos(theta)
@@ -116,18 +117,20 @@ class VideoParallax:
                 "z":0,
             }
             #frame = frame[120:120 + height, 200:200 + width, :]
-            TotalMeasurement.frame_reading.end_of_loop()
+
             rotation = self.pose_server.camera_rotation()
             viewport = self.extract_viewport(frame, rotation.yaw, rotation.pitch)
-            self.pass_frame_to_parallax_worker(viewport, args, pos, pose_dims)
-
+            self.pass_frame_to_parallax_worker(viewport, args, pos, pose_dims, frame_nr)
+            TotalMeasurement.frame_is_preproccessed(frame_nr)
+            TotalMeasurement.frame_reading.end_of_loop()
             display_frame = self.postprocess_worker.display_frame
             if display_frame is not None:
                 cv2.imshow("Parallax", display_frame)
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
 
-            TotalMeasurement.print_summary()
+            TotalMeasurement.write_summary()
+            frame_nr += 1
 
 
         # Close the image show frame
@@ -136,7 +139,7 @@ class VideoParallax:
 
 
 
-    def pass_frame_to_parallax_worker(self, frame, args, pos, pose_dims):
+    def pass_frame_to_parallax_worker(self, frame, args, pos, pose_dims, frame_nr):
         # Preprocess Input
 
         img_input = frame[[2, 1, 0], :, :].unsqueeze(0)
@@ -144,7 +147,7 @@ class VideoParallax:
         pos = getPositionVector(pos["x"], pos["y"], pos["z"], 0, 0, 0, pose_dims=pose_dims).unsqueeze(
             0).to(params.DEVICE)
 
-        self.parallax_worker.queue_img(img_input, pos)
+        self.parallax_worker.queue_img(img_input, pos, frame_nr)
 
 
 

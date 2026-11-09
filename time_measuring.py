@@ -101,6 +101,13 @@ class SingleProcessMeasurements:
 
 
 
+
+@dataclass(frozen=True, slots=True)
+class FrameTracker:
+    nr: int
+    read_time:datetime
+
+
 class TotalMeasurement:
     _summary_printed = False
 
@@ -110,8 +117,62 @@ class TotalMeasurement:
     frame_object_detection = SingleProcessMeasurements()
     frame_sending = SingleProcessMeasurements()
 
+    __frames_read:dict[int, datetime] = dict()
+    __old_frames_remover:queue.Queue[FrameTracker] = queue.Queue()
+    __oldest_frame = FrameTracker(-1, datetime.now())
+
+    __latency_acc_preproc = float('inf')
+    __latency_acc_parallax = float('inf')
+    __latency_acc_postproc = float('inf')
+    __total_latency = float('inf')
+
     @classmethod
-    def print_summary(cls):
+    def frame_is_read(cls, n:int):
+        cls.__remove_old_frames()
+        cls.__frames_read.update({n: datetime.now()})
+
+
+    @classmethod
+    def frame_is_preproccessed(cls, n: int):
+        if cls.__frames_read.get(n, None) is not None:
+            cls.__latency_acc_preproc = (datetime.now() - cls.__frames_read.get(n)).total_seconds()
+
+    @classmethod
+    def frame_parallax_is_created(cls, n: int):
+        if cls.__frames_read.get(n, None) is not None:
+            cls.__latency_acc_parallax = (datetime.now() - cls.__frames_read.get(n)).total_seconds()
+
+
+    @classmethod
+    def frame_is_postproccessed(cls, n: int):
+        if cls.__frames_read.get(n, None) is not None:
+            cls.__latency_acc_postproc = (datetime.now() - cls.__frames_read.get(n)).total_seconds()
+
+    @classmethod
+    def frame_is_send(cls, n:int):
+        if cls.__frames_read.get(n, None) is not None:
+            cls.__total_latency = (datetime.now() -cls.__frames_read.pop(n)).total_seconds()
+
+
+    @classmethod
+    def __remove_old_frames(cls):
+        """
+        remove old frames to prevent unbounded growth of __frames_read dict
+        """
+        while (datetime.now() - cls.__oldest_frame.read_time) > timedelta(seconds = 2):
+            if cls.__old_frames_remover.empty():
+                cls.__oldest_frame = FrameTracker(-1, datetime.now())
+            if not cls.__old_frames_remover.empty():
+                __oldest_frame = cls.__old_frames_remover.get()
+                cls.__frames_read.pop(__oldest_frame.nr)
+                cls.__oldest_frame = __oldest_frame
+
+
+
+
+
+    @classmethod
+    def write_summary(cls):
         reading = cls.frame_reading
         parallax = cls.frame_parallax_creation
         postproc = cls.frame_postprocessing
@@ -131,17 +192,16 @@ class TotalMeasurement:
         # .2f	Display as a float with exactly 2 decimal places
 
         output = f"""\
-        ╔════════════════════════════════════════════╗
-        ║             PERFORMANCE MONITOR            ║
-        ╠══════════════╦════════════╦════════════════╣
-        ║ Stage        ║ FPS        ║ Latency (ms)   ║
-        ╠══════════════╬════════════╬════════════════╣
-        ║ Reading      ║ {reading.avg_fps:>10.2f} ║ {reading.avg_latency*1000:>14.2f} ║
-        ║ Parallax     ║ {parallax.avg_fps:>10.2f} ║ {parallax.avg_latency*1000:>14.2f} ║
-        ║ Postproc     ║ {postproc.avg_fps:>10.2f} ║ {postproc.avg_latency*1000:>14.2f} ║
-        ║ Sending      ║ {sending.avg_fps:>10.2f} ║ {sending.avg_latency*1000:>14.2f} ║
-        ╠══════════════╩════════════╬════════════════╣
-        ║ TOTAL LATENCY             ║ {total_latency*1000:>14.2f} ║
+        ╔═════════════════════════════════════════════════════════════╗
+        ║                      PERFORMANCE MONITOR                    ║
+        ╠══════════════╦════════════╦════════════════╦════════════════╣
+        ║ Stage        ║ FPS        ║ Latency (ms)   ║ Latency acc (ms)
+        ╠══════════════╬════════════╬════════════════╣════════════════╣
+        ║ Preproc      ║ {reading.avg_fps:>10.2f} ║ {reading.avg_latency*1000:>14.2f} ║ {cls.__latency_acc_preproc*1000:>14.2f} ║
+        ║ Parallax     ║ {parallax.avg_fps:>10.2f} ║ {parallax.avg_latency*1000:>14.2f} ║ {cls.__latency_acc_parallax*1000:>14.2f} ║
+        ║ Postproc     ║ {postproc.avg_fps:>10.2f} ║ {postproc.avg_latency*1000:>14.2f} ║ {cls.__latency_acc_postproc*1000:>14.2f} ║
+        ╠══════════════╩════════════╬════════════════╬════════════════╝
+        ║ TOTAL LATENCY             ║ {cls.__total_latency*1000:>14.2f} ║ 
         ╚═══════════════════════════╩════════════════╝
         ╔══════════════╦════════════╦════════════════╗
         ║ Object detect║ {detection.avg_fps:>10.2f} ║ {detection.avg_latency*1000:>14.2f} ║
