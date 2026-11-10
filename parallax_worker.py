@@ -1,4 +1,3 @@
-import queue
 import threading
 from dataclasses import dataclass
 from queue import  Queue
@@ -29,12 +28,7 @@ class ParallaxWorker:
         self._thread.start()
 
     def queue_img(self, img, pos):
-        if self.__imgs.full():
-            try:
-                self.__imgs.get_nowait()
-            except queue.Empty:
-                pass
-        self.__imgs.put_nowait(ImageJob(img, pos))
+        self.__imgs.put(ImageJob(img, pos))
 
 
     def _run_worker(self):

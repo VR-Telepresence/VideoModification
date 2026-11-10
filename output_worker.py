@@ -10,9 +10,11 @@ from time_measuring import TotalMeasurement
 
 
 class OutputWorker:
-    def __init__(self, unity_server):
+    def __init__(self, detector, output_width, output_height):
         self.__res_imgs = Queue()
-        self.__unityServer = unity_server
+        self.__detector = detector
+        self.__unityServer = ViewportProvidingServer()
+        self.__writer = self.__create_writer(output_width, output_height)
         self.display_frame = None
 
         self._thread = threading.Thread(
@@ -43,7 +45,15 @@ class OutputWorker:
             TotalMeasurement.frame_postprocessing.end_of_loop()
 
     def __handle_parallax_img(self, predicted_img):
-        self.display_frame = predicted_img
-        self.__unityServer.update_frame(predicted_img)
+        parallax_frame = predicted_img
+
+        self.display_frame = parallax_frame
+
+
+        if self.__detector is not None:
+            self.__detector.submit(parallax_frame)
+            parallax_frame = self.__detector.draw(parallax_frame)
+
+        self.__unityServer.update_frame(parallax_frame)
         #self.__writer.write(parallax_frame)
 
