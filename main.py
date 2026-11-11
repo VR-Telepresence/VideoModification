@@ -51,8 +51,6 @@ class VideoParallax:
 
         self.output_worker = OutputWorker(self.unity_server)
         self.parallax_worker = ParallaxWorker(self.output_worker.add_result_image, parallax_model)
-        
-        # Spout Sender to avoid en- and decoding JPEGs
         self.spout_sender = UnitySpoutSender("PVSNetStream")
 
     def findCap(self):
