@@ -26,6 +26,7 @@ from detection import create_detector
 
 from server.posetracker_server import PoseServer
 from server.viewport_providing_server import ViewportProvidingServer
+from spout_sender import UnitySpoutSender
 from time_measuring import TotalMeasurement
 
 
@@ -37,9 +38,7 @@ class VideoParallax:
         self.pose_server = PoseServer()
         self.output_worker = OutputWorker(detector, width, height)
         self.parallax_worker = ParallaxWorker(self.output_worker.add_result_image, parallax_model)
-
-
-
+        self.spout_sender = UnitySpoutSender("PVSNetStream")
 
     def findCap(self):
         # Establish a connection to the webcam
@@ -92,11 +91,7 @@ class VideoParallax:
         )
         return viewport
 
-
-
-
-
-    def create_parallax_with_cam(self,  args, pose_dims, detector=None ):
+    def create_parallax_with_cam(self, args, pose_dims, detector=None ):
         cap = self.findCap()
 
         if cap is None:
@@ -105,8 +100,6 @@ class VideoParallax:
         theta = 0
         radius = 0.06
         yaw=0
-
-
 
         while cap.isOpened():
             TotalMeasurement.frame_reading.start_of_loop()
@@ -127,11 +120,12 @@ class VideoParallax:
             #frame = frame[120:120 + height, 200:200 + width, :]
             TotalMeasurement.frame_reading.end_of_loop()
             rotation = self.pose_server.camera_rotation()
-            viewport = self.extract_viewport(frame, rotation.yaw, rotation.pitch)
+            viewport = self.extract_viewport(frame, rotation.yaw, -rotation.pitch)
             self.pass_frame_to_parallax_worker(viewport, args, pos, pose_dims)
 
             display_frame = self.output_worker.display_frame
             if display_frame is not None:
+                self.spout_sender.send_bgr(display_frame)
                 cv2.imshow("Parallax", display_frame)
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
@@ -141,9 +135,7 @@ class VideoParallax:
 
         # Close the image show frame
         cv2.destroyAllWindows()
-        self.writer.release()
-
-
+        self.spout_sender.close()
 
     def pass_frame_to_parallax_worker(self, frame, args, pos, pose_dims):
         # Preprocess Input
@@ -243,5 +235,3 @@ if __name__ == "__main__":
     detector = build_detector(args)
 
     VideoParallax(model, detector).create_parallax_with_cam(args, pose_dims)
-
-
