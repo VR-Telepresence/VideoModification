@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 import torch
 
-from time_measuring import TotalMeasurement
+from video_parallax.time_measuring import TotalMeasurement
 
 
 @dataclass(frozen=True, slots=True)

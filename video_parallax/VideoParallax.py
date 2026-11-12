@@ -12,14 +12,13 @@ from pytorch360convert import e2p
 
 import parameters as params
 
-from output_worker import PostprocessWorker
-from parallax_worker import ParallaxWorker
+from video_parallax.output_worker import PostprocessWorker
+from video_parallax.parallax_worker import ParallaxWorker
 from predict_view import getPositionVector
-from detection import create_detector
 
-from server.posetracker_server import PoseServer
-from spout_sender import UnitySpoutSender
-from time_measuring import TotalMeasurement
+from video_parallax.server.posetracker_server import PoseServer
+from video_parallax.spout_sender import UnitySpoutSender
+from video_parallax.time_measuring import TotalMeasurement
 
 
 class VideoParallax:

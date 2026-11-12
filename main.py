@@ -1,34 +1,12 @@
-import datetime
-import logging
-import queue
-import time
-
-import cv2
 import os
 import argparse
-
-import numpy as np
 import torch
-from pytorch360convert import e2p
-from scipy.spatial.transform import rotation
-from torchvision import transforms
-from torchvision.utils import save_image
-from PIL import Image
-
 import parameters as params
-from VideoParallax import VideoParallax
+from video_parallax.VideoParallax import VideoParallax
 from models.pvsnet_model import PVSNet
 import helperFunctions as helper
-from output_worker import PostprocessWorker
-from parallax_worker import ParallaxWorker
-from predict_view import getPositionVector
-import pytorch360convert
-from detection import create_detector
+from video_parallax.detection import create_detector
 
-from server.posetracker_server import PoseServer
-from server.viewport_providing_server import ViewportProvidingServer
-from spout_sender import UnitySpoutSender
-from time_measuring import TotalMeasurement
 
 def build_detector(args):
     if args.detector == "none":

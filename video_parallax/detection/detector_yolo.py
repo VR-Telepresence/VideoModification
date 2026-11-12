@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from ultralytics import YOLO
 
-from time_measuring import TotalMeasurement
+from video_parallax.time_measuring import TotalMeasurement
 from .detector_base import BaseDetector
 
 

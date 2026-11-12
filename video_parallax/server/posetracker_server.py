@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import websockets
 
-from server.base_websocket_server import BaseWebsocketServer
+from video_parallax.server.base_websocket_server import BaseWebsocketServer
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
