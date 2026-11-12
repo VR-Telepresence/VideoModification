@@ -7,8 +7,8 @@ from typing import Any
 import cv2
 import torch
 
-from server.viewport_providing_server import ViewportProvidingServer
-from time_measuring import TotalMeasurement
+from video_parallax.server.viewport_providing_server import ViewportProvidingServer
+from video_parallax.time_measuring import TotalMeasurement
 
 
 @dataclass(frozen=True, slots=True)

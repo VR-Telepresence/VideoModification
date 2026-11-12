@@ -7,8 +7,8 @@ import json
 import websockets
 from ultralytics import YOLO
 
-from server.base_websocket_server import BaseWebsocketServer
-from time_measuring import TotalMeasurement
+from video_parallax.server.base_websocket_server import BaseWebsocketServer
+from video_parallax.time_measuring import TotalMeasurement
 
 model = YOLO("yolo26n-seg.pt")
 
