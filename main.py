@@ -24,6 +24,7 @@ from predict_view import getPositionVector
 import pytorch360convert
 
 from server.posetracker_server import PoseServer
+from server.segmentation_server import SegmentationServer
 from server.viewport_providing_server import ViewportProvidingServer
 from time_measuring import TotalMeasurement
 
@@ -42,6 +43,13 @@ class VideoParallax:
         )
 
         self.unity_server = ViewportProvidingServer(
+            detector=args.detector,
+            classes=only,
+            conf=args.det_conf,
+            imgsz=args.det_imgsz,
+        )
+
+        self.segmentation_server = SegmentationServer(
             detector=args.detector,
             classes=only,
             conf=args.det_conf,
@@ -133,6 +141,7 @@ class VideoParallax:
             rotation = self.pose_server.camera_rotation()
             viewport = self.extract_viewport(frame, rotation.yaw, rotation.pitch)
             self.pass_frame_to_parallax_worker(viewport, args, pos, pose_dims)
+            self.segmentation_server.update_frame(viewport)
 
             display_frame = self.output_worker.display_frame
             if display_frame is not None:

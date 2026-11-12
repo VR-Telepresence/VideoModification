@@ -64,7 +64,7 @@ class SegmentationServer(BaseWebsocketServer):
 
                 payload = await asyncio.to_thread(self._process, frame, fid)
                 last_sent = fid
-                await websocket.send(payload)  # nur Text, kein JPEG mehr
+                await websocket.send(payload)
         except websockets.exceptions.ConnectionClosed:
             print(f"[{self._name}] Client disconnected.")
         except Exception:
