@@ -18,7 +18,7 @@ python main.py  --checkpoint .\checkpoint\checkpoint_blender_pvsnet_256x256.pth 
 ### Start performance monitoring
 While the main program is running, execute this in another terminal:
 ```bash
-python performance_monitoring.py
+python video_parallax/performance_monitoring.py
 ```
 
 
