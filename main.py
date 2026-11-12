@@ -18,7 +18,7 @@ from PIL import Image
 import parameters as params
 from models.pvsnet_model import PVSNet
 import helperFunctions as helper
-from output_worker import OutputWorker
+from output_worker import PostprocessWorker
 from parallax_worker import ParallaxWorker
 from predict_view import getPositionVector
 import pytorch360convert
@@ -36,9 +36,12 @@ class VideoParallax:
 
     def __init__(self, parallax_model, detector):
         self.pose_server = PoseServer()
-        self.output_worker = OutputWorker(detector, width, height)
-        self.parallax_worker = ParallaxWorker(self.output_worker.add_result_image, parallax_model)
+        self.postprocess_worker = PostprocessWorker(detector, width, height)
+        self.parallax_worker = ParallaxWorker(self.postprocess_worker.add_result_image, parallax_model, width, height)
         self.spout_sender = UnitySpoutSender("PVSNetStream")
+
+
+
 
     def findCap(self):
         # Establish a connection to the webcam
@@ -65,6 +68,7 @@ class VideoParallax:
     def extract_viewport(self, frame, yaw, pitch=0, roll=0):
         frame_tensor = (
                 torch.from_numpy(frame)
+                .to(params.DEVICE)
                 .permute(2, 0, 1)  # HWC -> CHW
                 .float()
                 / 255.0
@@ -79,17 +83,7 @@ class VideoParallax:
             mode="bilinear",
         )
 
-        viewport = (
-            viewport_tensor
-            .detach()
-            .permute(1, 2, 0)  # CHW -> HWC
-            .clamp(0, 1)
-            .mul(255)
-            .byte()
-            .cpu()
-            .numpy()
-        )
-        return viewport
+        return viewport_tensor
 
     def create_parallax_with_cam(self, args, pose_dims, detector=None ):
         cap = self.findCap()
@@ -101,9 +95,12 @@ class VideoParallax:
         radius = 0.06
         yaw=0
 
+
+        frame_nr = 1
         while cap.isOpened():
             TotalMeasurement.frame_reading.start_of_loop()
             ret, frame = cap.read()
+            TotalMeasurement.frame_is_read(frame_nr)
 
             # create example positions
             x = radius * np.cos(theta)
@@ -118,44 +115,36 @@ class VideoParallax:
                 "z":0,
             }
             #frame = frame[120:120 + height, 200:200 + width, :]
-            TotalMeasurement.frame_reading.end_of_loop()
+
             rotation = self.pose_server.camera_rotation()
             viewport = self.extract_viewport(frame, rotation.yaw, -rotation.pitch)
-            self.pass_frame_to_parallax_worker(viewport, args, pos, pose_dims)
-
-            display_frame = self.output_worker.display_frame
+            self.pass_frame_to_parallax_worker(viewport, args, pos, pose_dims, frame_nr)
+            TotalMeasurement.frame_is_preproccessed(frame_nr)
+            TotalMeasurement.frame_reading.end_of_loop()
+            display_frame = self.postprocess_worker.display_frame
             if display_frame is not None:
                 self.spout_sender.send_bgr(display_frame)
                 cv2.imshow("Parallax", display_frame)
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
 
-            TotalMeasurement.print_summary()
+            TotalMeasurement.write_summary()
+            frame_nr += 1
 
 
         # Close the image show frame
         cv2.destroyAllWindows()
         self.spout_sender.close()
 
-    def pass_frame_to_parallax_worker(self, frame, args, pos, pose_dims):
+    def pass_frame_to_parallax_worker(self, frame, args, pos, pose_dims, frame_nr):
         # Preprocess Input
 
-        transform = transforms.Compose([
-            transforms.Resize((height, width)),
-            transforms.ToTensor()
-        ])
-
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-        img_input = transform(
-            Image.fromarray(frame_rgb)
-        ).unsqueeze(0).to(params.DEVICE)
-        # --- 0.001 s up
+        img_input = frame[[2, 1, 0], :, :].unsqueeze(0)
 
         pos = getPositionVector(pos["x"], pos["y"], pos["z"], 0, 0, 0, pose_dims=pose_dims).unsqueeze(
             0).to(params.DEVICE)
 
-        self.parallax_worker.queue_img(img_input, pos)
+        self.parallax_worker.queue_img(img_input, pos, frame_nr)
 
 
 

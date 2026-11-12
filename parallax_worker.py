@@ -1,5 +1,6 @@
 import threading
 from dataclasses import dataclass
+from datetime import datetime
 from queue import  Queue
 
 import cv2
@@ -13,12 +14,20 @@ from time_measuring import TotalMeasurement
 class ImageJob:
     img:torch.Tensor
     pos:torch.Tensor
+    frame_nr:int
 
 class ParallaxWorker:
-    def __init__(self, handle_parallax_image, model):
+    def __init__(self, handle_parallax_image, model, width, height):
         self.__handle_parallax_image = handle_parallax_image
-        self.__imgs = Queue(5)
+        self.__imgs:Queue[ImageJob] = Queue(1)
         self.__model = model
+
+        self._cpu_frame = torch.empty(
+            (height, width, 3),
+            dtype=torch.uint8,
+            device="cpu",
+            pin_memory=True
+        )
 
         self._thread = threading.Thread(
             target=self._run_worker,
@@ -27,27 +36,42 @@ class ParallaxWorker:
         )
         self._thread.start()
 
-    def queue_img(self, img, pos):
-        self.__imgs.put(ImageJob(img, pos))
+    def queue_img(self, img, pos, frame_nr):
+        if self.__imgs.full():
+            self.__imgs.get()
+            print("parallax worker queue is full, removed oldest image")
+        self.__imgs.put(ImageJob(img, pos, frame_nr))
+
+
 
 
     def _run_worker(self):
         while True:
-            TotalMeasurement.frame_parallax_creation.start_of_loop()
             img_job = self.__imgs.get()
+            TotalMeasurement.frame_parallax_creation.start_of_loop()
             img = img_job.img
             pos = img_job.pos
-            with torch.no_grad():
+            with torch.inference_mode():
                 predicted_img = self.__model(img, pos)
-                predicted_img = torch.clamp(predicted_img, 0, 1)
-            torch.cuda.synchronize() # can be removed, only for time tracking relevant
 
+                # Model output: [1, 3, H, W], Float32 RGB, CUDA
+                frame_gpu = (
+                    predicted_img[0]  # [3, H, W]
+                    .clamp(0, 1)
+                    .mul(255)
+                    .to(torch.uint8)  # UInt8 on GPU
+                    .permute(1, 2, 0)  # [H, W, 3]
+                    .flip(-1)  # RGB -> BGR
+                    .contiguous()
+                )
 
-            predicted_np = predicted_img[0].squeeze(0).permute(1, 2, 0).cpu().numpy()
-            # Float [0,1] -> uint8 [0,255]
-            predicted_np = (predicted_np * 255).astype(np.uint8)
-            # RGB -> BGR
-            predicted_frame = cv2.cvtColor(predicted_np, cv2.COLOR_RGB2BGR)
+            # Transfer only the final UInt8 frame, saving around 0.5ms of 57ms total
+            self._cpu_frame.copy_(frame_gpu, non_blocking=True)
 
-            self.__handle_parallax_image(predicted_frame)
+            # Wait until the transfer has finished
+            torch.cuda.current_stream().synchronize()
+            predicted_frame = self._cpu_frame.numpy()
+
+            self.__handle_parallax_image(predicted_frame, img_job.frame_nr)
+            TotalMeasurement.frame_parallax_is_created(img_job.frame_nr)
             TotalMeasurement.frame_parallax_creation.end_of_loop()

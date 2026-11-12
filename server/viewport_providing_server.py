@@ -15,7 +15,6 @@ model = YOLO("yolo26n-seg.pt")
 
 # FrameProvidingServer
 class ViewportProvidingServer(BaseWebsocketServer):
-    frame = None
     __HOST = "0.0.0.0"
     __PORT = 8766
 
@@ -27,9 +26,10 @@ class ViewportProvidingServer(BaseWebsocketServer):
             port="8766",
             name="Viewport-Server"
         )
-
+        self.frame = None
         self._loop = None
         self._frame_updated = None
+        self.frame_nr = None
 
     async def _handler(self, websocket):
         print("Unity connected!")
@@ -44,13 +44,16 @@ class ViewportProvidingServer(BaseWebsocketServer):
                 
                 _, jpeg_bytes = cv2.imencode('.jpg', self.frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
                 await websocket.send(jpeg_bytes.tobytes())
+                TotalMeasurement.frame_is_send(self.frame_nr)
+                print(self.frame_nr)
                 TotalMeasurement.frame_sending.end_of_loop()
 
         except websockets.exceptions.ConnectionClosed:
             print("Unity disconnected!")
 
-    def update_frame(self, frame):
+    def update_frame(self, frame, frame_nr):
         self.frame = frame
+        self.frame_nr = frame_nr
 
         if self._loop is not None:
             self._loop.call_soon_threadsafe(self._frame_updated.set)
