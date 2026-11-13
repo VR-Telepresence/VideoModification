@@ -27,6 +27,7 @@ venv
 # media
 viewport.mp4
 yolo26n-seg.pt
+yolo26n.pt
 
 # temp files
 temp/

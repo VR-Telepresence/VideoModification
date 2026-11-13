@@ -52,7 +52,7 @@ class VideoParallax:
             cap.set(cv2.CAP_PROP_FPS, 30)
 
             # print(i, cap.isOpened())
-            if cap.isOpened():
+            if cap.isOpened() and i ==4:
                 return cap
             cap.release()
         print("Failed to find camera.")
@@ -93,6 +93,8 @@ class VideoParallax:
         while cap.isOpened():
             TotalMeasurement.frame_reading.start_of_loop()
             ret, frame = cap.read()
+            TotalMeasurement.frame_reading.end_of_loop()
+            TotalMeasurement.frame_preproc.start_of_loop()
             TotalMeasurement.frame_is_read(frame_nr)
 
             # create example positions
@@ -113,7 +115,7 @@ class VideoParallax:
             viewport = self.extract_viewport(frame, rotation.yaw, -rotation.pitch)
             self.pass_frame_to_parallax_worker(viewport, args, pos, pose_dims, frame_nr)
             TotalMeasurement.frame_is_preproccessed(frame_nr)
-            TotalMeasurement.frame_reading.end_of_loop()
+            TotalMeasurement.frame_preproc.end_of_loop()
             display_frame = self.postprocess_worker.display_frame
             if display_frame is not None:
                 self.spout_sender.send_bgr(display_frame)
@@ -122,6 +124,7 @@ class VideoParallax:
                     break
 
             TotalMeasurement.write_summary()
+
             frame_nr += 1
 
 

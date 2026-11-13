@@ -110,8 +110,8 @@ class FrameTracker:
 
 class TotalMeasurement:
     _summary_printed = False
-
     frame_reading = SingleProcessMeasurements()
+    frame_preproc = SingleProcessMeasurements()
     frame_parallax_creation = SingleProcessMeasurements()
     frame_postprocessing = SingleProcessMeasurements()
     frame_object_detection = SingleProcessMeasurements()
@@ -121,6 +121,7 @@ class TotalMeasurement:
     __old_frames_remover:queue.Queue[FrameTracker] = queue.Queue()
     __oldest_frame = FrameTracker(-1, datetime.now())
 
+    __latency_acc_reading = float('inf')
     __latency_acc_preproc = float('inf')
     __latency_acc_parallax = float('inf')
     __latency_acc_postproc = float('inf')
@@ -174,13 +175,14 @@ class TotalMeasurement:
     @classmethod
     def write_summary(cls):
         reading = cls.frame_reading
+        preproc = cls.frame_preproc
         parallax = cls.frame_parallax_creation
         postproc = cls.frame_postprocessing
         sending = cls.frame_sending
         detection = cls.frame_object_detection
 
         total_latency = (
-                reading.avg_latency
+                preproc.avg_latency
                 + parallax.avg_latency
                 + postproc.avg_latency
                 + sending.avg_latency
@@ -197,7 +199,7 @@ class TotalMeasurement:
         ╠══════════════╦════════════╦════════════════╦════════════════╣
         ║ Stage        ║ FPS        ║ Latency (ms)   ║ Latency acc (ms)
         ╠══════════════╬════════════╬════════════════╣════════════════╣
-        ║ Preproc      ║ {reading.avg_fps:>10.2f} ║ {reading.avg_latency*1000:>14.2f} ║ {cls.__latency_acc_preproc*1000:>14.2f} ║
+        ║ Preproc      ║ {preproc.avg_fps:>10.2f} ║ {preproc.avg_latency*1000:>14.2f} ║ {cls.__latency_acc_preproc*1000:>14.2f} ║
         ║ Parallax     ║ {parallax.avg_fps:>10.2f} ║ {parallax.avg_latency*1000:>14.2f} ║ {cls.__latency_acc_parallax*1000:>14.2f} ║
         ║ Postproc     ║ {postproc.avg_fps:>10.2f} ║ {postproc.avg_latency*1000:>14.2f} ║ {cls.__latency_acc_postproc*1000:>14.2f} ║
         ╠══════════════╩════════════╬════════════════╬════════════════╝
@@ -205,6 +207,9 @@ class TotalMeasurement:
         ╚═══════════════════════════╩════════════════╝
         ╔══════════════╦════════════╦════════════════╗
         ║ Object detect║ {detection.avg_fps:>10.2f} ║ {detection.avg_latency*1000:>14.2f} ║
+        ╚══════════════╩════════════╩════════════════╝
+        ╔══════════════╦════════════╦════════════════╗
+        ║ Idle reading ║ {reading.avg_fps:>10.2f} ║ {reading.avg_latency*1000:>14.2f} ║
         ╚══════════════╩════════════╩════════════════╝
         """
 

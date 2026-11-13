@@ -88,3 +88,7 @@ Lowered Performance:
 #### Conclusion
 As of now it seems to be a problem entirely related to the hardware performance with no software fix available. 
 
+TODO:
+- refactor worker-> create superclass
+- make postproc worker to prevent images from getting lost due to too long preprocessing time. 
+- test other library for viewpoiunt extraction
