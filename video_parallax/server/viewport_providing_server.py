@@ -1,0 +1,61 @@
+import asyncio
+import logging
+import threading
+
+import cv2
+import json
+import websockets
+from ultralytics import YOLO
+
+from video_parallax.server.base_websocket_server import BaseWebsocketServer
+from video_parallax.time_measuring import TotalMeasurement
+
+model = YOLO("yolo26n-seg.pt")
+
+
+# FrameProvidingServer
+class ViewportProvidingServer(BaseWebsocketServer):
+    __HOST = "0.0.0.0"
+    __PORT = 8766
+
+    def __init__(self):
+        _logger = logging.getLogger(self.__class__.__name__)
+
+        super().__init__(
+            host="0.0.0.0",
+            port="8766",
+            name="Viewport-Server"
+        )
+        self.frame = None
+        self._loop = None
+        self._frame_updated = None
+        self.frame_nr = None
+
+    async def _handler(self, websocket):
+        print("Unity connected!")
+        self._loop = asyncio.get_running_loop()
+        self._frame_updated = asyncio.Event()
+        try:
+            while True:
+
+                await self._frame_updated.wait()
+                TotalMeasurement.frame_sending.start_of_loop()
+                self._frame_updated.clear()
+                
+                _, jpeg_bytes = cv2.imencode('.jpg', self.frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
+                await websocket.send(jpeg_bytes.tobytes())
+                TotalMeasurement.frame_is_send(self.frame_nr)
+                print(self.frame_nr)
+                TotalMeasurement.frame_sending.end_of_loop()
+
+        except websockets.exceptions.ConnectionClosed:
+            print("Unity disconnected!")
+
+    def update_frame(self, frame, frame_nr):
+        self.frame = frame
+        self.frame_nr = frame_nr
+
+        if self._loop is not None:
+            self._loop.call_soon_threadsafe(self._frame_updated.set)
+
+

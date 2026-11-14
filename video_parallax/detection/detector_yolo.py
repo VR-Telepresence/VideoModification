@@ -1,6 +1,8 @@
 import numpy as np
 import torch
 from ultralytics import YOLO
+
+from video_parallax.time_measuring import TotalMeasurement
 from .detector_base import BaseDetector, Detection
 
 
@@ -13,6 +15,7 @@ class YoloDetector(BaseDetector):
         self.conf, self.imgsz = conf, imgsz
 
     def infer(self, frame) -> list[Detection]:
+        TotalMeasurement.frame_object_detection.start_of_loop()
         r = self.model.predict(
             frame, conf=self.conf, imgsz=self.imgsz, classes=self.class_ids,
             device=self.device, half=(self.device == "cuda"), verbose=False,
@@ -24,6 +27,8 @@ class YoloDetector(BaseDetector):
         boxes = r.boxes.xyxy.cpu().numpy().astype(int)
         confs = r.boxes.conf.cpu().numpy()
         clss = r.boxes.cls.cpu().numpy().astype(int)
+
+        TotalMeasurement.frame_object_detection.end_of_loop()
 
         return [
             Detection(
