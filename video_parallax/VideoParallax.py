@@ -16,25 +16,31 @@ from video_parallax.output_worker import PostprocessWorker
 from video_parallax.parallax_worker import ParallaxWorker
 from predict_view import getPositionVector
 
+from video_parallax.detection import create_detector
 from video_parallax.server.posetracker_server import PoseServer
 from video_parallax.spout_sender import UnitySpoutSender
 from video_parallax.time_measuring import TotalMeasurement
 
 
+def build_detector(args):
+    if args.detector == "none":
+        return None
+    only = tuple(s.strip() for s in args.only.split(","))
+    return create_detector(args.detector, only=only, conf=args.det_conf, imgsz=args.det_imgsz)
+
 class VideoParallax:
     height = 256
     width = 256
 
-    def __init__(self, parallax_model, detector):
+    def __init__(self, parallax_model, args):
         width = self.width
         height = self.height
+
+        detector = build_detector(args)
         self.pose_server = PoseServer()
         self.postprocess_worker = PostprocessWorker(detector, width, height)
         self.parallax_worker = ParallaxWorker(self.postprocess_worker.add_result_image, parallax_model, width, height)
         self.spout_sender = UnitySpoutSender("PVSNetStream")
-
-
-
 
     def findCap(self):
         # Establish a connection to the webcam
@@ -52,7 +58,7 @@ class VideoParallax:
             cap.set(cv2.CAP_PROP_FPS, 30)
 
             # print(i, cap.isOpened())
-            if cap.isOpened() and i ==4:
+            if cap.isOpened():
                 return cap
             cap.release()
         print("Failed to find camera.")

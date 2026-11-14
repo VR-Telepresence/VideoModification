@@ -26,7 +26,8 @@ class ParallaxWorker:
             (height, width, 3),
             dtype=torch.uint8,
             device="cpu",
-            pin_memory=True
+            #pin_memory=True
+            pin_memory=torch.cuda.is_available()
         )
 
         self._thread = threading.Thread(
@@ -69,7 +70,9 @@ class ParallaxWorker:
             self._cpu_frame.copy_(frame_gpu, non_blocking=True)
 
             # Wait until the transfer has finished
-            torch.cuda.current_stream().synchronize()
+            #torch.cuda.current_stream().synchronize()
+            if frame_gpu.is_cuda:
+                torch.cuda.current_stream().synchronize()
             predicted_frame = self._cpu_frame.numpy()
 
             self.__handle_parallax_image(predicted_frame, img_job.frame_nr)

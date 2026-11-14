@@ -21,14 +21,14 @@ class YoloDetector(BaseDetector):
             device=self.device, half=(self.device == "cuda"), verbose=False,
         )[0]
 
+        TotalMeasurement.frame_object_detection.end_of_loop()
+
         if r.masks is None:
             return []
 
         boxes = r.boxes.xyxy.cpu().numpy().astype(int)
         confs = r.boxes.conf.cpu().numpy()
         clss = r.boxes.cls.cpu().numpy().astype(int)
-
-        TotalMeasurement.frame_object_detection.end_of_loop()
 
         return [
             Detection(
