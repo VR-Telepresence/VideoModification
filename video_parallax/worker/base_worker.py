@@ -15,7 +15,6 @@ class BaseWorker[T:Job](ABC):
             name=f"Worker: {name}",
             daemon=True,
         )
-        self._thread.start()
 
     def add_job(self, job: T):
         if self.__jobs.full():
@@ -36,5 +35,6 @@ class BaseWorker[T:Job](ABC):
             job = self.__get_next_job()
             self._handle_job(job)
 
-
+    def start(self):
+        self._thread.start()
 

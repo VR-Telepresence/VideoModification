@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from queue import Queue
-from typing import Any
+from typing import Any, Callable
 import cv2
 from typing_extensions import override
 from video_parallax.server.viewport_providing_server import ViewportProvidingServer
@@ -13,15 +13,23 @@ class PostprocessJob(Job):
     frame:Any
     frame_nr: int
 
+@dataclass(frozen=True, slots=True)
+class PostprocessResult(Job):
+    frame:Any
+    frame_nr: int
+
+
+
 
 class PostprocessWorker(BaseWorker[PostprocessJob]):
-    def __init__(self, detector, output_width, output_height):
+    def __init__(self, detector, output_width, output_height, handle_result_fn:Callable[[PostprocessResult],None]):
         super().__init__(self.__class__.__name__, Queue(1))
         self.__detector = detector
         self.__unityServer = ViewportProvidingServer()
         self.__writer = self.__create_writer(output_width, output_height)
         self.display_frame = None
         self.counter = 0
+        self.__handle_result_fn = handle_result_fn
 
     def __create_writer(self, width, height):
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
@@ -46,6 +54,7 @@ class PostprocessWorker(BaseWorker[PostprocessJob]):
             self.__detector.submit(parallax_frame)
             parallax_frame = self.__detector.draw(parallax_frame)
 
+        self.__handle_result_fn(PostprocessResult(parallax_frame, frame_nr))
         self.__unityServer.update_frame(parallax_frame, frame_nr)
         #self.__writer.write(parallax_frame)
 

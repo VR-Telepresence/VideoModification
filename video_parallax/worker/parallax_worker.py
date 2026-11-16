@@ -1,12 +1,12 @@
 from dataclasses import dataclass
 from queue import  Queue
-from typing import override
+from typing import override, Any, Callable
 
 import torch
 from video_parallax.worker.base_worker import BaseWorker
 from video_parallax.time_measuring import TotalMeasurement
 from video_parallax.worker.base_worker import Job
-from video_parallax.worker.postprocess_worker import PostprocessJob
+from video_parallax.worker.postprocess_worker import PostprocessJob, PostprocessWorker
 
 
 @dataclass(frozen=True, slots=True)
@@ -15,11 +15,16 @@ class ParallaxJob(Job):
     pos:torch.Tensor
     frame_nr:int
 
+@dataclass(frozen=True, slots=True)
+class ParallaxResult(Job):
+    frame:Any
+    frame_nr: int
+
 class ParallaxWorker(BaseWorker[ParallaxJob]):
-    def __init__(self, handle_parallax_image, model, width, height):
+    def __init__(self, model, width, height, handle_result_fn:Callable[[ParallaxResult],None]):
         super().__init__(self.__class__.__name__, Queue(1))
-        self.__handle_parallax_image = handle_parallax_image
         self.__model = model
+        self.__handle_result_fn = handle_result_fn
 
         self._cpu_frame = torch.empty(
             (height, width, 3),
@@ -27,6 +32,7 @@ class ParallaxWorker(BaseWorker[ParallaxJob]):
             device="cpu",
             pin_memory=True
         )
+
 
     @override
     def _handle_job(self, job: ParallaxJob):
@@ -53,7 +59,7 @@ class ParallaxWorker(BaseWorker[ParallaxJob]):
         torch.cuda.current_stream().synchronize()
         predicted_frame = self._cpu_frame.numpy()
 
-        self.__handle_parallax_image(PostprocessJob(predicted_frame, job.frame_nr))
+        self.__handle_result_fn(ParallaxResult(predicted_frame, job.frame_nr))
 
         TotalMeasurement.frame_parallax_is_created(job.frame_nr)
         TotalMeasurement.frame_parallax_creation.end_of_loop()

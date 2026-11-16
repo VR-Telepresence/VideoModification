@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from queue import Queue
-from typing import Any
+from typing import Any, Callable
 import cv2
 import numpy as np
 import torch
@@ -22,17 +22,21 @@ class PreprocessJob(Job):
     frame:Any
     frame_nr: int
 
+@dataclass(frozen=True, slots=True)
+class PreprocessResult:
+    img:torch.Tensor
+    pos:torch.Tensor
+    frame_nr: int
+
 
 class PreprocessWorker(BaseWorker[PreprocessJob]):
-    def __init__(self, pose_dims, parallax_model, detector, width, height):
+    def __init__(self, pose_dims, width, height, handle_result_fn:Callable[[PreprocessResult],None]):
         super().__init__(self.__class__.__name__, Queue(1))
         self.pose_server = PoseServer()
-        self.postprocess_worker = PostprocessWorker(detector, width, height)
-        self.parallax_worker = ParallaxWorker(self.postprocess_worker.add_job, parallax_model, width, height)
+        self.__handle_result_fn = handle_result_fn
 
         self.width = width
         self.height = height
-
 
         self.theta = 0
         self.radius = 0.06
@@ -78,7 +82,7 @@ class PreprocessWorker(BaseWorker[PreprocessJob]):
         pos = getPositionVector(pos["x"], pos["y"], pos["z"], 0, 0, 0, pose_dims=self.pose_dims).unsqueeze(
             0).to(params.DEVICE)
 
-        self.parallax_worker.add_job(ParallaxJob(img_input, pos, frame_nr))
+        self.__handle_result_fn(PreprocessResult(img_input, pos, frame_nr))
 
     def extract_viewport(self, frame, yaw, pitch=0, roll=0):
         frame_tensor = (
