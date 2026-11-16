@@ -11,6 +11,7 @@ from pytorch360convert import e2p
 from typing_extensions import override
 
 import parameters as params
+from video_parallax.ChachedE2p import CachedE2P
 
 from video_parallax.performance_tracking.time_measuring import TotalMeasurement
 from video_parallax.worker.base_worker import BaseWorker, Job
@@ -56,6 +57,12 @@ class PreprocessWorker(BaseWorker[PreprocessJob]):
         # using seperate stream to not ne held up by other threads gpu executions and syncronisation times, improved preprocessers latency by from 30 to 15ms
         self._stream = torch.cuda.Stream(
             device=params.DEVICE
+        )
+        self._projector = CachedE2P(
+            self.height,
+            self.width,
+            device=params.DEVICE,
+            fov=(90, 60),
         )
 
 
@@ -126,6 +133,14 @@ class PreprocessWorker(BaseWorker[PreprocessJob]):
                 / 255.0
         )
 
+
+        viewport_tensor1 = self._projector(
+            frame_tensor,
+            yaw=yaw,
+            pitch=pitch,
+        )
+
+        """
         viewport_tensor = e2p(
             frame_tensor,
             fov_deg=(90, 60), #horizontal, vertical
@@ -135,5 +150,11 @@ class PreprocessWorker(BaseWorker[PreprocessJob]):
             mode="bilinear",
         )
 
+        difference = (viewport_tensor - viewport_tensor1).abs()
+
+        print("Max difference:", difference.max().item())
+        print("Mean difference:", difference.mean().item())
+        """
+
         # Wait only for this event's completion
-        return viewport_tensor
+        return viewport_tensor1
