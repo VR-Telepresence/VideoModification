@@ -13,7 +13,7 @@ class BaseWorker[T:Job](ABC):
         self._thread = threading.Thread(
             target=self.__run_worker,
             name=f"Worker: {name}",
-            daemon=True,
+            daemon=False,
         )
 
     def add_job(self, job: T):

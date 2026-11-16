@@ -1,3 +1,5 @@
+import datetime
+import threading
 from dataclasses import dataclass
 from queue import Queue
 from typing import Any, Callable
@@ -27,6 +29,7 @@ class PreprocessResult:
     img:torch.Tensor
     pos:torch.Tensor
     frame_nr: int
+    ready_event: torch.Event
 
 
 class PreprocessWorker(BaseWorker[PreprocessJob]):
@@ -43,6 +46,11 @@ class PreprocessWorker(BaseWorker[PreprocessJob]):
         self.yaw = 0
 
         self.pose_dims = pose_dims
+
+        # using seperate stream to not ne held up by other threads gpu executions and syncronisation times, improved preprocessers latency by from 30 to 15ms
+        self._stream = torch.cuda.Stream(
+            device=params.DEVICE
+        )
 
 
     @override
@@ -67,24 +75,37 @@ class PreprocessWorker(BaseWorker[PreprocessJob]):
         # frame = frame[120:120 + height, 200:200 + width, :]
 
         rotation = self.pose_server.camera_rotation()
-        viewport = self.extract_viewport(frame, rotation.yaw, -rotation.pitch)
-        self.pass_frame_to_parallax_worker(viewport, pos, self.pose_dims, frame_nr)
+
+        with torch.cuda.stream(self._stream):
+            viewport = self.extract_viewport(frame, rotation.yaw, -rotation.pitch)
+            self.pass_frame_to_parallax_worker(viewport, pos, self.pose_dims, frame_nr)
+
         TotalMeasurement.frame_is_preproccessed(frame_nr)
         TotalMeasurement.frame_preproc.end_of_loop()
 
     def pass_frame_to_parallax_worker(self, frame, pos, pose_dims, frame_nr):
         # Preprocess Input
-
+        other_stuff_s = datetime.datetime.now()
         img_input = frame[[2, 1, 0], :, :].unsqueeze(0)
         pos3D = self.pose_server.position_3d()
         print(pos3D.x, pos3D.y, pos3D.z)
 
         pos = getPositionVector(pos["x"], pos["y"], pos["z"], 0, 0, 0, pose_dims=self.pose_dims).unsqueeze(
             0).to(params.DEVICE)
+        ready_event = torch.cuda.Event()
+        ready_event.record(self._stream)
+        self.__handle_result_fn(PreprocessResult(img_input, pos, frame_nr, ready_event))
+        print(f"other stuff {(datetime.datetime.now() - other_stuff_s).total_seconds() * 1000} ms")
 
-        self.__handle_result_fn(PreprocessResult(img_input, pos, frame_nr))
 
     def extract_viewport(self, frame, yaw, pitch=0, roll=0):
+
+        print(
+            threading.current_thread().name,
+            "CUDA stream:",
+            torch.cuda.current_stream().cuda_stream
+        )
+
         frame_tensor = (
                 torch.from_numpy(frame)
                 .to(params.DEVICE)
@@ -102,4 +123,5 @@ class PreprocessWorker(BaseWorker[PreprocessJob]):
             mode="bilinear",
         )
 
+        # Wait only for this event's completion
         return viewport_tensor

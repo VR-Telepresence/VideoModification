@@ -20,6 +20,7 @@ class Pipeline:
             img=result.img,
             pos=result.pos,
             frame_nr=result.frame_nr,
+            ready_event=result.ready_event,
         )
 
         self.parallax_worker.add_job(job)
