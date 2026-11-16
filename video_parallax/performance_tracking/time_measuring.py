@@ -158,7 +158,7 @@ class TotalMeasurement:
     @classmethod
     def frame_is_send(cls, n:int):
         if cls.__frames_read.get(n, None) is not None:
-            cls.__total_latency = (datetime.now() -cls.__frames_read.pop(n)).total_seconds()
+            cls.__total_latency = (datetime.now() - cls.__frames_read.pop(n)).total_seconds()
 
 
     @classmethod
@@ -168,10 +168,11 @@ class TotalMeasurement:
         """
         while (datetime.now() - cls.__oldest_frame.read_time) > timedelta(seconds = 2):
             if cls.__old_frames_remover.empty():
-                cls.__oldest_frame = FrameTracker(-1, datetime.now())
+                break
             if not cls.__old_frames_remover.empty():
                 __oldest_frame = cls.__old_frames_remover.get()
-                cls.__frames_read.pop(__oldest_frame.nr)
+                if __oldest_frame.nr in cls.__frames_read:
+                    cls.__frames_read.pop(__oldest_frame.nr)
                 cls.__oldest_frame = __oldest_frame
 
 

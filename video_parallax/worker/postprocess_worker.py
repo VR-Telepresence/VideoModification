@@ -54,10 +54,10 @@ class PostprocessWorker(BaseWorker[PostprocessJob]):
             self.__detector.submit(parallax_frame)
             parallax_frame = self.__detector.draw(parallax_frame)
 
+        TotalMeasurement.frame_is_postproccessed(frame_nr)
         self.__handle_result_fn(PostprocessResult(parallax_frame, frame_nr))
         self.__unityServer.update_frame(parallax_frame, frame_nr)
         #self.__writer.write(parallax_frame)
 
-        TotalMeasurement.frame_is_postproccessed(frame_nr)
         TotalMeasurement.frame_postprocessing.end_of_loop()
 

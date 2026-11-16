@@ -15,7 +15,6 @@ class VideoParallax:
     def __init__(self, parallax_model, detector, pose_dims):
         width = self.width
         height = self.height
-        self.spout_sender = UnitySpoutSender("PVSNetStream")
         self.pipeline = Pipeline(pose_dims, parallax_model, detector, width, height)
 
 
@@ -60,7 +59,6 @@ class VideoParallax:
 
             display_frame = self.pipeline.display_frame
             if display_frame is not None:
-                self.spout_sender.send_bgr(display_frame)
                 cv2.imshow("Parallax", display_frame)
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break

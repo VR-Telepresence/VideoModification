@@ -1,5 +1,7 @@
 from typing import Any
 
+from video_parallax.performance_tracking.time_measuring import TotalMeasurement
+from video_parallax.spout_sender import UnitySpoutSender
 from video_parallax.worker.postprocess_worker import PostprocessWorker, PostprocessJob, PostprocessResult
 from video_parallax.worker.parallax_worker import ParallaxWorker, ParallaxJob, ParallaxResult
 from video_parallax.worker.preprocess_worker import PreprocessWorker, PreprocessResult, PreprocessJob
@@ -12,6 +14,10 @@ class Pipeline:
         self.postprocess_worker = PostprocessWorker(detector, width, height, self._handle_final_result)
         self.parallax_worker = ParallaxWorker(parallax_model, width, height, self._to_postprocess)
         self.preprocess_worker = PreprocessWorker(pose_dims, width, height, self._to_parallax)
+
+        self.spout_sender = UnitySpoutSender("PVSNetStream")
+
+
 
 
 
@@ -33,6 +39,8 @@ class Pipeline:
 
     def _handle_final_result(self, result: PostprocessResult) -> None:
         self.display_frame = result.frame
+        self.spout_sender.send_bgr(result.frame)
+        TotalMeasurement.frame_is_send(result.frame_nr)
 
 
     def start(self) -> None:

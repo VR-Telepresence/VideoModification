@@ -39,14 +39,11 @@ class ViewportProvidingServer(BaseWebsocketServer):
             while True:
 
                 await self._frame_updated.wait()
-                TotalMeasurement.frame_sending.start_of_loop()
                 self._frame_updated.clear()
                 
                 _, jpeg_bytes = cv2.imencode('.jpg', self.frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
                 await websocket.send(jpeg_bytes.tobytes())
-                TotalMeasurement.frame_is_send(self.frame_nr)
                 print(self.frame_nr)
-                TotalMeasurement.frame_sending.end_of_loop()
 
         except websockets.exceptions.ConnectionClosed:
             print("Unity disconnected!")
