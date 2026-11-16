@@ -5,7 +5,7 @@ import cv2
 from video_parallax.pipeline import Pipeline
 from video_parallax.worker.preprocess_worker import PostprocessWorker, PreprocessWorker, PreprocessJob
 from video_parallax.spout_sender import UnitySpoutSender
-from video_parallax.time_measuring import TotalMeasurement
+from video_parallax.performance_tracking.time_measuring import TotalMeasurement
 
 class VideoParallax:
 

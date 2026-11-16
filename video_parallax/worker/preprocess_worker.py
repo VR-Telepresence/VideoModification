@@ -11,7 +11,7 @@ from typing_extensions import override
 
 import parameters as params
 
-from video_parallax.time_measuring import TotalMeasurement
+from video_parallax.performance_tracking.time_measuring import TotalMeasurement
 from video_parallax.worker.base_worker import BaseWorker, Job
 from predict_view import getPositionVector
 from video_parallax.worker.parallax_worker import ParallaxJob, ParallaxWorker
@@ -77,8 +77,16 @@ class PreprocessWorker(BaseWorker[PreprocessJob]):
         rotation = self.pose_server.camera_rotation()
 
         with torch.cuda.stream(self._stream):
+            start = torch.cuda.Event(enable_timing=True)
+            end = torch.cuda.Event(enable_timing=True)
+            start.record(self._stream)
+
             viewport = self.extract_viewport(frame, rotation.yaw, -rotation.pitch)
             self.pass_frame_to_parallax_worker(viewport, pos, self.pose_dims, frame_nr)
+
+            end.record(self._stream)
+            TotalMeasurement.cuda_job_tracking.add_cuda_measurement_preproc(job.frame_nr, start, end)
+
 
         TotalMeasurement.frame_is_preproccessed(frame_nr)
         TotalMeasurement.frame_preproc.end_of_loop()

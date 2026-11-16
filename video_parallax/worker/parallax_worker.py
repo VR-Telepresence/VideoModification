@@ -5,7 +5,7 @@ from typing import override, Any, Callable
 
 import torch
 from video_parallax.worker.base_worker import BaseWorker
-from video_parallax.time_measuring import TotalMeasurement
+from video_parallax.performance_tracking.time_measuring import TotalMeasurement
 from video_parallax.worker.base_worker import Job
 from video_parallax.worker.postprocess_worker import PostprocessJob, PostprocessWorker
 import parameters as params
@@ -60,6 +60,11 @@ class ParallaxWorker(BaseWorker[ParallaxJob]):
             job.img.record_stream(self._stream)
             job.pos.record_stream(self._stream)
 
+            start = torch.cuda.Event(enable_timing=True)
+            end = torch.cuda.Event(enable_timing=True)
+
+            start.record(self._stream)
+
             with torch.inference_mode():
                 predicted_img = self.__model(img, pos)
                 # Model output: [1, 3, H, W], Float32 RGB, CUDA
@@ -79,11 +84,12 @@ class ParallaxWorker(BaseWorker[ParallaxJob]):
 
             # Wait until the transfer has finished
             torch.cuda.current_stream().synchronize()
+
+            end.record(self._stream)
+
             predicted_frame = self._cpu_frame.numpy()
-
-
-
             self.__handle_result_fn(ParallaxResult(predicted_frame, job.frame_nr))
+            TotalMeasurement.cuda_job_tracking.add_cuda_measurement_parallax(job.frame_nr, start, end)
 
         TotalMeasurement.frame_parallax_is_created(job.frame_nr)
         TotalMeasurement.frame_parallax_creation.end_of_loop()
