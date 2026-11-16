@@ -1,4 +1,5 @@
 import datetime
+import logging
 import threading
 from dataclasses import dataclass
 from queue import Queue
@@ -30,6 +31,11 @@ class PreprocessResult:
     pos:torch.Tensor
     frame_nr: int
     ready_event: torch.Event
+
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
 
 
 class PreprocessWorker(BaseWorker[PreprocessJob]):
@@ -93,7 +99,6 @@ class PreprocessWorker(BaseWorker[PreprocessJob]):
 
     def pass_frame_to_parallax_worker(self, frame, pos, pose_dims, frame_nr):
         # Preprocess Input
-        other_stuff_s = datetime.datetime.now()
         img_input = frame[[2, 1, 0], :, :].unsqueeze(0)
         pos3D = self.pose_server.position_3d()
         print(pos3D.x, pos3D.y, pos3D.z)
@@ -103,15 +108,14 @@ class PreprocessWorker(BaseWorker[PreprocessJob]):
         ready_event = torch.cuda.Event()
         ready_event.record(self._stream)
         self.__handle_result_fn(PreprocessResult(img_input, pos, frame_nr, ready_event))
-        print(f"other stuff {(datetime.datetime.now() - other_stuff_s).total_seconds() * 1000} ms")
 
 
     def extract_viewport(self, frame, yaw, pitch=0, roll=0):
 
-        print(
-            threading.current_thread().name,
+        logger.debug(f"""
+            {threading.current_thread().name},
             "CUDA stream:",
-            torch.cuda.current_stream().cuda_stream
+            {torch.cuda.current_stream().cuda_stream}"""
         )
 
         frame_tensor = (

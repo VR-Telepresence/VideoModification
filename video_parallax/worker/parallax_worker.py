@@ -1,3 +1,4 @@
+import logging
 import threading
 from dataclasses import dataclass
 from queue import  Queue
@@ -22,6 +23,9 @@ class ParallaxJob(Job):
 class ParallaxResult(Job):
     frame:Any
     frame_nr: int
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 class ParallaxWorker(BaseWorker[ParallaxJob]):
     def __init__(self, model, width, height, handle_result_fn:Callable[[ParallaxResult],None]):
@@ -48,11 +52,11 @@ class ParallaxWorker(BaseWorker[ParallaxJob]):
             img = job.img
             pos = job.pos
 
-            print(
-                threading.current_thread().name,
+            logger.debug(f"""
+                {threading.current_thread().name},
                 "CUDA stream:",
-                torch.cuda.current_stream().cuda_stream
-            )
+                {torch.cuda.current_stream().cuda_stream}"""
+                         )
 
             self._stream.wait_event(job.ready_event)
 

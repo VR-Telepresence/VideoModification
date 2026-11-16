@@ -20,12 +20,12 @@ class CudaJobTracking(ABC):
     __cuda_lock = threading.Lock()
     __cuda_history: dict[str, deque] = {}
 
-    cuda_avg_ms: dict[str, float] = {}
-    cuda_avg_ms.update(
-        {
+    cuda_avg_ms: dict[str, float] = {
             "preproc": float("inf"),
             "parallax":  float("inf"),
-        })
+        }
+
+
 
 
 
