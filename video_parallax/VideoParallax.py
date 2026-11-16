@@ -12,8 +12,8 @@ from pytorch360convert import e2p
 
 import parameters as params
 
-from video_parallax.output_worker import PostprocessWorker
-from video_parallax.parallax_worker import ParallaxWorker
+from video_parallax.worker.output_worker import PostprocessWorker
+from video_parallax.worker.parallax_worker import ParallaxWorker, ParallaxJob
 from predict_view import getPositionVector
 
 from video_parallax.server.posetracker_server import PoseServer
@@ -30,7 +30,7 @@ class VideoParallax:
         height = self.height
         self.pose_server = PoseServer()
         self.postprocess_worker = PostprocessWorker(detector, width, height)
-        self.parallax_worker = ParallaxWorker(self.postprocess_worker.add_result_image, parallax_model, width, height)
+        self.parallax_worker = ParallaxWorker(self.postprocess_worker.add_job, parallax_model, width, height)
         self.spout_sender = UnitySpoutSender("PVSNetStream")
 
 
@@ -52,7 +52,7 @@ class VideoParallax:
             cap.set(cv2.CAP_PROP_FPS, 30)
 
             # print(i, cap.isOpened())
-            if cap.isOpened() and i ==4:
+            if cap.isOpened():
                 return cap
             cap.release()
         print("Failed to find camera.")
@@ -142,4 +142,4 @@ class VideoParallax:
         pos = getPositionVector(pos["x"], pos["y"], pos["z"], 0, 0, 0, pose_dims=pose_dims).unsqueeze(
             0).to(params.DEVICE)
 
-        self.parallax_worker.queue_img(img_input, pos, frame_nr)
+        self.parallax_worker.add_job(ParallaxJob(img_input, pos, frame_nr))

@@ -6,32 +6,27 @@ from typing import Any
 
 import cv2
 import torch
+from typing_extensions import override
 
 from video_parallax.server.viewport_providing_server import ViewportProvidingServer
 from video_parallax.time_measuring import TotalMeasurement
+from video_parallax.worker.base_worker import BaseWorker, Job
 
 
 @dataclass(frozen=True, slots=True)
-class PostprocessJob:
+class PostprocessJob(Job):
     frame:Any
     frame_nr: int
 
 
-class PostprocessWorker:
+class PostprocessWorker(BaseWorker[PostprocessJob]):
     def __init__(self, detector, output_width, output_height):
-        self.__res_imgs:Queue[PostprocessJob] = Queue(1)
+        super().__init__(self.__class__.__name__, Queue(1))
         self.__detector = detector
         self.__unityServer = ViewportProvidingServer()
         self.__writer = self.__create_writer(output_width, output_height)
         self.display_frame = None
         self.counter = 0
-
-        self._thread = threading.Thread(
-            target=self._run_worker,
-            name="output_worker",
-            daemon=True,
-        )
-        self._thread.start()
 
     def add_result_image(self, predicted_img, frame_nr):
         self.__res_imgs.put(PostprocessJob(predicted_img, frame_nr))
@@ -45,19 +40,12 @@ class PostprocessWorker:
             fps,
             (width, height)
         )
+    @override
+    def _handle_job(self, job: PostprocessJob):
+        TotalMeasurement.frame_postprocessing.start_of_loop()
 
-    def _run_worker(self):
-        while True:
-            post_process_job = self.__res_imgs.get()
-            predicted_img = post_process_job.frame
-
-            TotalMeasurement.frame_postprocessing.start_of_loop()
-            self.__handle_parallax_img(predicted_img, post_process_job.frame_nr)
-            TotalMeasurement.frame_is_postproccessed(post_process_job.frame_nr)
-            TotalMeasurement.frame_postprocessing.end_of_loop()
-
-    def __handle_parallax_img(self, predicted_img, frame_nr):
-        parallax_frame = predicted_img
+        parallax_frame = job.frame
+        frame_nr = job.frame_nr
 
         self.display_frame = parallax_frame
 
@@ -68,4 +56,7 @@ class PostprocessWorker:
 
         self.__unityServer.update_frame(parallax_frame, frame_nr)
         #self.__writer.write(parallax_frame)
+
+        TotalMeasurement.frame_is_postproccessed(frame_nr)
+        TotalMeasurement.frame_postprocessing.end_of_loop()
 
