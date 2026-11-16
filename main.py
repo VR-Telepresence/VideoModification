@@ -69,4 +69,4 @@ if __name__ == "__main__":
     model.eval()
 
     detector = build_detector(args)
-    VideoParallax(model, detector).create_parallax_with_cam(args, pose_dims)
+    VideoParallax(model, detector, args, pose_dims).create_parallax_with_cam()

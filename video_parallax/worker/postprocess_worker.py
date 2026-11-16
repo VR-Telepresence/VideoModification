@@ -1,13 +1,8 @@
-import threading
-import time
 from dataclasses import dataclass
 from queue import Queue
 from typing import Any
-
 import cv2
-import torch
 from typing_extensions import override
-
 from video_parallax.server.viewport_providing_server import ViewportProvidingServer
 from video_parallax.time_measuring import TotalMeasurement
 from video_parallax.worker.base_worker import BaseWorker, Job
@@ -27,9 +22,6 @@ class PostprocessWorker(BaseWorker[PostprocessJob]):
         self.__writer = self.__create_writer(output_width, output_height)
         self.display_frame = None
         self.counter = 0
-
-    def add_result_image(self, predicted_img, frame_nr):
-        self.__res_imgs.put(PostprocessJob(predicted_img, frame_nr))
 
     def __create_writer(self, width, height):
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")

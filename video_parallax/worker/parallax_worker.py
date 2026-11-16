@@ -6,7 +6,7 @@ import torch
 from video_parallax.worker.base_worker import BaseWorker
 from video_parallax.time_measuring import TotalMeasurement
 from video_parallax.worker.base_worker import Job
-from video_parallax.worker.output_worker import PostprocessJob
+from video_parallax.worker.postprocess_worker import PostprocessJob
 
 
 @dataclass(frozen=True, slots=True)
