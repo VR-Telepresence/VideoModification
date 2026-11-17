@@ -102,8 +102,12 @@ class PreprocessWorker(BaseWorker[PreprocessJob]):
         img_input = frame[[2, 1, 0], :, :].unsqueeze(0)
         pos3D = self.pose_server.position_3d()
         print(pos3D.x, pos3D.y, pos3D.z)
+        max_radius = 0.07
+        x = max(min(-pos3D.x, max_radius), -max_radius)
+        y = max(min(pos3D.y, max_radius), -max_radius)
+        z = max(min(-pos3D.z, max_radius), -max_radius)
 
-        pos = getPositionVector(pos["x"], pos["y"], pos["z"], 0, 0, 0, pose_dims=self.pose_dims).unsqueeze(
+        pos = getPositionVector(x, y, z, 0, 0, 0, pose_dims=self.pose_dims).unsqueeze(
             0).to(params.DEVICE)
         ready_event = torch.cuda.Event()
         ready_event.record(self._stream)

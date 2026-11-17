@@ -10,7 +10,7 @@ from video_parallax.performance_tracking.time_measuring import TotalMeasurement
 class VideoParallax:
 
     height:Final[int] = 256
-    width:Final[int] = 256
+    width:Final[int] = 257
 
     def __init__(self, parallax_model, detector, pose_dims):
         width = self.width
@@ -34,7 +34,7 @@ class VideoParallax:
             cap.set(cv2.CAP_PROP_FPS, 30)
 
             # print(i, cap.isOpened())
-            if cap.isOpened():
+            if cap.isOpened() and i == 4:
                 return cap
             cap.release()
         print("Failed to find camera.")
