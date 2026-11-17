@@ -4,6 +4,7 @@ Grabs the full 360 frame from the camera and sends it over NDI.
 pip install opencv-python numpy ndi-python   (and install the NDI runtime)
 """
 import cv2
+import time
 import NDIlib as ndi
 
 #for insta x4 = 2880, 1440, 30
@@ -63,6 +64,7 @@ def main():
             if not ok:
                 print("Camera read failed")
                 break
+            video.timecode = time.time_ns() // 100
             video.data = cv2.cvtColor(frame, cv2.COLOR_BGR2BGRA)
             ndi.send_send_video_v2(sender, video)
     except KeyboardInterrupt:
