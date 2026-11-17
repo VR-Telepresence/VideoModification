@@ -5,13 +5,27 @@ pip install opencv-python numpy ndi-python   (and install the NDI runtime)
 """
 import cv2
 import time
+import socket
+import struct
+import threading
 import NDIlib as ndi
 
 #for insta x4 = 2880, 1440, 30
 #for webcam = 1280, 720, 30
 WIDTH, HEIGHT, FPS = 1280, 720, 30
 NDI_NAME = "Insta360 X4"
+SYNC_PORT = 5005   # UDP port for clock sync
 
+def time_server():
+    # answers every UDP ping with this PC's clock (nanoseconds)
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.bind(("", SYNC_PORT))
+    while True:
+        _, addr = s.recvfrom(64)
+        s.sendto(struct.pack("!q", time.time_ns()), addr)
+
+
+threading.Thread(target=time_server, daemon=True).start()
 
 def find_cap():
     # Try camera indexes 0-9, accept the first one that delivers the wanted size
