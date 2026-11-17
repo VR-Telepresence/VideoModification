@@ -1,8 +1,6 @@
 """
 Runs on the SMALL PC next to the camera.
 Grabs the full 360 frame from the camera and sends it over NDI.
-The main PC receives it and does the viewport extraction + parallax.
-
 pip install opencv-python numpy ndi-python   (and install the NDI runtime)
 """
 import cv2
