@@ -38,10 +38,61 @@ class VideoParallax:
         self.output_worker = OutputWorker(detector, width, height)
         self.parallax_worker = ParallaxWorker(self.output_worker.add_result_image, parallax_model)
 
+    #"""
+    class NDICam:
+        def __init__(self):
+            import NDIlib as ndi  # only needed when NDI is used
+            self.ndi = ndi
+            self.finder = None
+            self.receiver = None
 
+            ndi.initialize()
+            self.finder = ndi.find_create_v2()
+            sources = []
+            for _ in range(5):
+                ndi.find_wait_for_sources(self.finder, 2000)
+                sources = ndi.find_get_current_sources(self.finder)
+                if sources:
+                    break
+            if not sources:
+                return
 
+            print("Connecting to", sources[0].ndi_name)
+            settings = ndi.RecvCreateV3()
+            settings.color_format = ndi.RECV_COLOR_FORMAT_BGRX_BGRA
+            self.receiver = ndi.recv_create_v3(settings)
+            ndi.recv_connect(self.receiver, sources[0])
+
+        def isOpened(self):
+            return self.receiver is not None
+
+        def read(self):
+            frame_type, video, _a, _m = self.ndi.recv_capture_v2(self.receiver, 1000)
+            if frame_type != self.ndi.FRAME_TYPE_VIDEO:
+                return False, None
+            frame = np.copy(video.data)
+            self.ndi.recv_free_video_v2(self.receiver, video)
+            return True, cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
+
+        def release(self):
+            if self.receiver is not None:
+                self.ndi.recv_destroy(self.receiver)
+                self.receiver = None
+            if self.finder is not None:
+                self.ndi.find_destroy(self.finder)
+                self.finder = None
+            self.ndi.destroy()
+    #"""
 
     def findCap(self):
+        if self.use_ndi:
+            cap = self.NDICam()
+            if cap.isOpened():
+                return cap
+            cap.release()
+            print("Failed to find NDI source.")
+            return None
+
         # Establish a connection to the webcam
         for i in range(10):
             cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
