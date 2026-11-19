@@ -54,9 +54,10 @@ class PreprocessWorker(BaseWorker[PreprocessJob]):
         self.pose_dims = pose_dims
 
         # using seperate stream to not ne held up by other threads gpu executions and syncronisation times, improved preprocessers latency by from 30 to 15ms
-        self._stream = torch.cuda.Stream(
-            device=params.DEVICE
-        )
+        if torch.cuda.is_available():
+            self._stream = torch.cuda.Stream(device="cuda")
+        else:
+            self._stream = None
 
 
     @override

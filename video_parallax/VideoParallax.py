@@ -2,12 +2,8 @@ from typing import Final
 
 import cv2
 
-from video_parallax.output_worker import PostprocessWorker
-from video_parallax.parallax_worker import ParallaxWorker
-
 from video_parallax.detection import create_detector
 from video_parallax.pipeline import Pipeline
-from video_parallax.worker.preprocess_worker import PostprocessWorker, PreprocessWorker, PreprocessJob
 from video_parallax.performance_tracking.time_measuring import TotalMeasurement
 
 def build_detector(args):
@@ -18,7 +14,7 @@ def build_detector(args):
 
 class VideoParallax:
     height:Final[int] = 256
-    width:Final[int] = 257
+    width:Final[int] = 256
 
     def __init__(self, parallax_model, args, pose_dims):
         width = self.width

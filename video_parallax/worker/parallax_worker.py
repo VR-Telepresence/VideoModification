@@ -37,11 +37,13 @@ class ParallaxWorker(BaseWorker[ParallaxJob]):
             (height, width, 3),
             dtype=torch.uint8,
             device="cpu",
-            pin_memory=True
+            pin_memory=torch.cuda.is_available()
         )
-        self._stream = torch.cuda.Stream(
-            device=params.DEVICE
-        )
+
+        if torch.cuda.is_available():
+            self._stream = torch.cuda.Stream(device="cuda")
+        else:
+            self._stream = None
 
 
     @override
@@ -87,7 +89,8 @@ class ParallaxWorker(BaseWorker[ParallaxJob]):
             self._cpu_frame.copy_(frame_gpu, non_blocking=True)
 
             # Wait until the transfer has finished
-            torch.cuda.current_stream().synchronize()
+            if frame_gpu.is_cuda:
+                torch.cuda.current_stream().synchronize()
 
             end.record(self._stream)
 

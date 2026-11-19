@@ -6,6 +6,7 @@ from typing_extensions import override
 from video_parallax.server.viewport_providing_server import ViewportProvidingServer
 from video_parallax.performance_tracking.time_measuring import TotalMeasurement
 from video_parallax.worker.base_worker import BaseWorker, Job
+from video_parallax.server.segmentation_server import SegmentationServer
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,7 +26,11 @@ class PostprocessWorker(BaseWorker[PostprocessJob]):
     def __init__(self, detector, output_width, output_height, handle_result_fn:Callable[[PostprocessResult],None]):
         super().__init__(self.__class__.__name__, Queue(1))
         self.__detector = detector
-        self.__unityServer = ViewportProvidingServer()
+
+        self.__segmentation_server = (
+            SegmentationServer(detector=detector) if detector is not None else None
+        )
+
         self.__writer = self.__create_writer(output_width, output_height)
         self.display_frame = None
         self.counter = 0
@@ -49,10 +54,8 @@ class PostprocessWorker(BaseWorker[PostprocessJob]):
 
         self.display_frame = parallax_frame
 
-
-        if self.__detector is not None:
-            self.__detector.submit(parallax_frame)
-            parallax_frame = self.__detector.draw(parallax_frame)
+        if self.__segmentation_server is not None:
+            self.__segmentation_server.update_frame(parallax_frame)
 
         TotalMeasurement.frame_is_postproccessed(frame_nr)
         self.__handle_result_fn(PostprocessResult(parallax_frame, frame_nr))
