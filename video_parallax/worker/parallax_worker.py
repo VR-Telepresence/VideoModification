@@ -39,25 +39,18 @@ class ParallaxWorker(BaseWorker[ParallaxJob]):
             device="cpu",
             pin_memory=torch.cuda.is_available()
         )
-
-        if torch.cuda.is_available():
+        if params.DEVICE == "cuda":
             self._stream = torch.cuda.Stream(device="cuda")
         else:
             self._stream = None
 
-
-    @override
-    def _handle_job(self, job: ParallaxJob):
-        TotalMeasurement.frame_parallax_creation.start_of_loop()
+    def __do_inference_gpu(self, job: ParallaxJob):
 
         with torch.cuda.stream(self._stream):
-            img = job.img
-            pos = job.pos
-
             logger.debug(f"""
-                {threading.current_thread().name},
-                "CUDA stream:",
-                {torch.cuda.current_stream().cuda_stream}"""
+                        {threading.current_thread().name},
+                        "CUDA stream:",
+                        {torch.cuda.current_stream().cuda_stream}"""
                          )
 
             self._stream.wait_event(job.ready_event)
@@ -68,35 +61,49 @@ class ParallaxWorker(BaseWorker[ParallaxJob]):
 
             start = torch.cuda.Event(enable_timing=True)
             end = torch.cuda.Event(enable_timing=True)
-
             start.record(self._stream)
 
-            with torch.inference_mode():
-                predicted_img = self.__model(img, pos)
-                # Model output: [1, 3, H, W], Float32 RGB, CUDA
-                frame_gpu = (
-                    predicted_img[0]  # [3, H, W]
-                    .clamp(0, 1)
-                    .mul(255)
-                    .to(torch.uint8)  # UInt8 on GPU
-                    .permute(1, 2, 0)  # [H, W, 3]
-                    .flip(-1)  # RGB -> BGR
-                    .contiguous()
-                )
-
-
-            # Transfer only the final UInt8 frame, saving around 0.5ms of 57ms total
-            self._cpu_frame.copy_(frame_gpu, non_blocking=True)
-
-            # Wait until the transfer has finished
-            if frame_gpu.is_cuda:
-                torch.cuda.current_stream().synchronize()
+            self.__do_inference(job)
 
             end.record(self._stream)
 
-            predicted_frame = self._cpu_frame.numpy()
-            self.__handle_result_fn(ParallaxResult(predicted_frame, job.frame_nr))
             TotalMeasurement.cuda_job_tracking.add_cuda_measurement_parallax(job.frame_nr, start, end)
 
         TotalMeasurement.frame_parallax_is_created(job.frame_nr)
         TotalMeasurement.frame_parallax_creation.end_of_loop()
+
+    @override
+    def _handle_job(self, job: ParallaxJob):
+        if params.DEVICE == "cpu":
+            self.__do_inference(job)
+        elif params.DEVICE == "cuda":
+            self.__do_inference_gpu(job)
+        else:
+            raise NotImplementedError("Invalid device value")
+
+    def __do_inference(self, job: ParallaxJob):
+        TotalMeasurement.frame_parallax_creation.start_of_loop()
+        img = job.img
+        pos = job.pos
+        with torch.inference_mode():
+            predicted_img = self.__model(img, pos)
+            # Model output: [1, 3, H, W], Float32 RGB, CUDA
+            frame_gpu = (
+                predicted_img[0]  # [3, H, W]
+                .clamp(0, 1)
+                .mul(255)
+                .to(torch.uint8)  # UInt8 on GPU
+                .permute(1, 2, 0)  # [H, W, 3]
+                .flip(-1)  # RGB -> BGR
+                .contiguous()
+            )
+
+        # Transfer only the final UInt8 frame, saving around 0.5ms of 57ms total
+        self._cpu_frame.copy_(frame_gpu, non_blocking=True)
+
+        # Wait until the transfer has finished
+        if frame_gpu.is_cuda:
+            torch.cuda.current_stream().synchronize()
+
+        predicted_frame = self._cpu_frame.numpy()
+        self.__handle_result_fn(ParallaxResult(predicted_frame, job.frame_nr))

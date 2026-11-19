@@ -54,53 +54,50 @@ class PreprocessWorker(BaseWorker[PreprocessJob]):
         self.pose_dims = pose_dims
 
         # using seperate stream to not ne held up by other threads gpu executions and syncronisation times, improved preprocessers latency by from 30 to 15ms
-        if torch.cuda.is_available():
+        if params.DEVICE == "cuda":
             self._stream = torch.cuda.Stream(device="cuda")
         else:
             self._stream = None
 
 
-    @override
-    def _handle_job(self, job: PreprocessJob):
-        frame = job.frame
+    def __extract_viewport_and_pass_result_gpu(self, job: PreprocessJob):
         frame_nr = job.frame_nr
         TotalMeasurement.frame_preproc.start_of_loop()
         TotalMeasurement.frame_is_read(frame_nr)
-
-        # create example positions
-        x = self.radius * np.cos(self.theta)
-        y = self.radius * np.sin(self.theta)
-        self.theta += np.pi / 50
-        self.yaw += 2
-
-        # create parallax
-        pos = {
-            "x": x,
-            "y": y,
-            "z": 0,
-        }
-        # frame = frame[120:120 + height, 200:200 + width, :]
-
-        rotation = self.pose_server.camera_rotation()
 
         with torch.cuda.stream(self._stream):
             start = torch.cuda.Event(enable_timing=True)
             end = torch.cuda.Event(enable_timing=True)
             start.record(self._stream)
 
-            viewport = self.extract_viewport(frame, rotation.yaw, -rotation.pitch)
-            self.pass_frame_to_parallax_worker(viewport, pos, self.pose_dims, frame_nr)
+            self.__extract_viewport_and_pass_result(job)
 
             end.record(self._stream)
             TotalMeasurement.cuda_job_tracking.add_cuda_measurement_preproc(job.frame_nr, start, end)
 
-
         TotalMeasurement.frame_is_preproccessed(frame_nr)
         TotalMeasurement.frame_preproc.end_of_loop()
 
-    def pass_frame_to_parallax_worker(self, frame, pos, pose_dims, frame_nr):
+
+    def __extract_viewport_and_pass_result(self, job: PreprocessJob):
+        rotation = self.pose_server.camera_rotation()
+        viewport_img = self.extract_viewport(job.frame, rotation.yaw, -rotation.pitch)
+        self.pass_frame_to_parallax_worker(viewport_img, job.frame_nr)
+
+
+    @override
+    def _handle_job(self, job: PreprocessJob):
+        if params.DEVICE == "cpu":
+            self.__extract_viewport_and_pass_result(job)
+        elif params.DEVICE == "cuda":
+            self.__extract_viewport_and_pass_result_gpu(job)
+        else:
+            raise NotImplementedError("Invalid device value")
+
+
+
+    def pass_frame_to_parallax_worker(self, img_input, frame_nr):
         # Preprocess Input
-        img_input = frame[[2, 1, 0], :, :].unsqueeze(0)
         pos3D = self.pose_server.position_3d()
         print(pos3D.x, pos3D.y, pos3D.z)
         max_radius = 0.07
@@ -110,8 +107,13 @@ class PreprocessWorker(BaseWorker[PreprocessJob]):
 
         pos = getPositionVector(x, y, z, 0, 0, 0, pose_dims=self.pose_dims).unsqueeze(
             0).to(params.DEVICE)
-        ready_event = torch.cuda.Event()
-        ready_event.record(self._stream)
+
+        if params.DEVICE == "cuda":
+            ready_event = torch.cuda.Event()
+            ready_event.record(self._stream)
+        else:
+            ready_event = None
+
         self.__handle_result_fn(PreprocessResult(img_input, pos, frame_nr, ready_event))
 
 
@@ -139,6 +141,8 @@ class PreprocessWorker(BaseWorker[PreprocessJob]):
             out_hw=(self.height, self.width),
             mode="bilinear",
         )
+        # TODO: was this line does again
+        img_input = viewport_tensor[[2, 1, 0], :, :].unsqueeze(0)
 
         # Wait only for this event's completion
-        return viewport_tensor
+        return img_input
