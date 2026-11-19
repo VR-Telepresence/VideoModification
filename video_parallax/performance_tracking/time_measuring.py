@@ -7,6 +7,9 @@ from datetime import datetime, timedelta
 from pathlib import Path
 import time
 
+from video_parallax.performance_tracking.gpu_tracking import CudaJobTracking
+
+
 class LatencyAverager:
     def __init__(self):
         self.__sum = 0.0
@@ -117,6 +120,8 @@ class TotalMeasurement:
     frame_object_detection = SingleProcessMeasurements()
     frame_sending = SingleProcessMeasurements()
 
+    cuda_job_tracking = CudaJobTracking()
+
     __frames_read:dict[int, datetime] = dict()
     __old_frames_remover:queue.Queue[FrameTracker] = queue.Queue()
     __oldest_frame = FrameTracker(-1, datetime.now())
@@ -131,6 +136,7 @@ class TotalMeasurement:
     def frame_is_read(cls, n:int):
         cls.__remove_old_frames()
         cls.__frames_read.update({n: datetime.now()})
+        cls.__old_frames_remover.put(FrameTracker(n, datetime.now()))
 
 
     @classmethod
@@ -152,7 +158,7 @@ class TotalMeasurement:
     @classmethod
     def frame_is_send(cls, n:int):
         if cls.__frames_read.get(n, None) is not None:
-            cls.__total_latency = (datetime.now() -cls.__frames_read.pop(n)).total_seconds()
+            cls.__total_latency = (datetime.now() - cls.__frames_read.pop(n)).total_seconds()
 
 
     @classmethod
@@ -162,10 +168,11 @@ class TotalMeasurement:
         """
         while (datetime.now() - cls.__oldest_frame.read_time) > timedelta(seconds = 2):
             if cls.__old_frames_remover.empty():
-                cls.__oldest_frame = FrameTracker(-1, datetime.now())
+                break
             if not cls.__old_frames_remover.empty():
                 __oldest_frame = cls.__old_frames_remover.get()
-                cls.__frames_read.pop(__oldest_frame.nr)
+                if __oldest_frame.nr in cls.__frames_read:
+                    cls.__frames_read.pop(__oldest_frame.nr)
                 cls.__oldest_frame = __oldest_frame
 
 
@@ -181,6 +188,11 @@ class TotalMeasurement:
         sending = cls.frame_sending
         detection = cls.frame_object_detection
 
+        cls.cuda_job_tracking.collect_cuda_measurements()
+        cuda_preproc = cls.cuda_job_tracking.avg_cuda_measurement_preproc()
+        cuda_parallax = cls.cuda_job_tracking.avg_cuda_measurement_parallax()
+
+
         total_latency = (
                 preproc.avg_latency
                 + parallax.avg_latency
@@ -194,22 +206,23 @@ class TotalMeasurement:
         # .2f	Display as a float with exactly 2 decimal places
 
         output = f"""\
-        ╔═════════════════════════════════════════════════════════════╗
-        ║                      PERFORMANCE MONITOR                    ║
-        ╠══════════════╦════════════╦════════════════╦════════════════╣
-        ║ Stage        ║ FPS        ║ Latency (ms)   ║ Latency acc (ms)
-        ╠══════════════╬════════════╬════════════════╣════════════════╣
-        ║ Preproc      ║ {preproc.avg_fps:>10.2f} ║ {preproc.avg_latency*1000:>14.2f} ║ {cls.__latency_acc_preproc*1000:>14.2f} ║
-        ║ Parallax     ║ {parallax.avg_fps:>10.2f} ║ {parallax.avg_latency*1000:>14.2f} ║ {cls.__latency_acc_parallax*1000:>14.2f} ║
-        ║ Postproc     ║ {postproc.avg_fps:>10.2f} ║ {postproc.avg_latency*1000:>14.2f} ║ {cls.__latency_acc_postproc*1000:>14.2f} ║
-        ╠══════════════╩════════════╬════════════════╬════════════════╝
-        ║ TOTAL LATENCY             ║ {cls.__total_latency*1000:>14.2f} ║ 
+        ╔════════════════════════════════════════════════════════════════════════════════╗
+        ║                              PERFORMANCE MONITOR                               ║
+        ╠══════════════╦════════════╦════════════════╦══════════════════╦════════════════╣
+        ║ Stage        ║ FPS        ║ Latency (ms)   ║ Latency acc (ms) ║ CUDA (ms)      ║
+        ╠══════════════╬════════════╬════════════════╬══════════════════╬════════════════╣
+        ║ Preproc      ║ {preproc.avg_fps:>10.2f} ║ {preproc.avg_latency * 1000:>14.2f} ║ {cls.__latency_acc_preproc * 1000:>16.2f} ║ {cuda_preproc:>14.2f} ║
+        ║ Parallax     ║ {parallax.avg_fps:>10.2f} ║ {parallax.avg_latency * 1000:>14.2f} ║ {cls.__latency_acc_parallax * 1000:>16.2f} ║ {cuda_parallax:>14.2f} ║
+        ║ Postproc     ║ {postproc.avg_fps:>10.2f} ║ {postproc.avg_latency * 1000:>14.2f} ║ {cls.__latency_acc_postproc * 1000:>16.2f} ║                ║
+        ╚══════════════╩════════════╩════════════════╩══════════════════╩════════════════╝
+        ╔═══════════════════════════╦════════════════╗
+        ║ TOTAL LATENCY             ║ {cls.__total_latency * 1000:>14.2f} ║
         ╚═══════════════════════════╩════════════════╝
         ╔══════════════╦════════════╦════════════════╗
-        ║ Object detect║ {detection.avg_fps:>10.2f} ║ {detection.avg_latency*1000:>14.2f} ║
+        ║ Object detect║ {detection.avg_fps:>10.2f} ║ {detection.avg_latency * 1000:>14.2f} ║
         ╚══════════════╩════════════╩════════════════╝
         ╔══════════════╦════════════╦════════════════╗
-        ║ Idle reading ║ {reading.avg_fps:>10.2f} ║ {reading.avg_latency*1000:>14.2f} ║
+        ║ Idle reading ║ {reading.avg_fps:>10.2f} ║ {reading.avg_latency * 1000:>14.2f} ║
         ╚══════════════╩════════════╩════════════════╝
         """
 
