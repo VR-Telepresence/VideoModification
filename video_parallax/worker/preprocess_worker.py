@@ -61,11 +61,20 @@ class PreprocessWorker(BaseWorker[PreprocessJob]):
 
 
     def __extract_viewport_and_pass_result_gpu(self, job: PreprocessJob):
+
+
+
         frame_nr = job.frame_nr
         TotalMeasurement.frame_preproc.start_of_loop()
         TotalMeasurement.frame_is_read(frame_nr)
 
         with torch.cuda.stream(self._stream):
+            logger.debug(f"""
+                {threading.current_thread().name},
+                "CUDA stream:",
+                {torch.cuda.current_stream().cuda_stream}"""
+                         )
+
             start = torch.cuda.Event(enable_timing=True)
             end = torch.cuda.Event(enable_timing=True)
             start.record(self._stream)
@@ -118,12 +127,6 @@ class PreprocessWorker(BaseWorker[PreprocessJob]):
 
 
     def extract_viewport(self, frame, yaw, pitch=0, roll=0):
-
-        logger.debug(f"""
-            {threading.current_thread().name},
-            "CUDA stream:",
-            {torch.cuda.current_stream().cuda_stream}"""
-        )
 
         frame_tensor = (
                 torch.from_numpy(frame)
