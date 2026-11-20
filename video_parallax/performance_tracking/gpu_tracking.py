@@ -20,13 +20,21 @@ class CudaJobTracking(ABC):
     __cuda_lock = threading.Lock()
     __cuda_history: dict[str, deque] = {}
 
-    cuda_avg_ms: dict[str, float] = {
+    __cuda_last_ms: dict[str, float] = {
+        "preproc": float("inf"),
+        "parallax": float("inf"),
+    }
+    __cuda_avg_ms: dict[str, float] = {
             "preproc": float("inf"),
             "parallax":  float("inf"),
         }
+    @classmethod
+    def last_cuda_measurement_preproc(cls):
+        return cls.__cuda_last_ms["preproc"]
 
-
-
+    @classmethod
+    def last_cuda_measurement_parallax(cls):
+        return cls.__cuda_last_ms["parallax"]
 
 
     @classmethod
@@ -50,11 +58,11 @@ class CudaJobTracking(ABC):
 
     @classmethod
     def avg_cuda_measurement_preproc(cls):
-        return cls.cuda_avg_ms["preproc"]
+        return cls.__cuda_avg_ms["preproc"]
 
     @classmethod
     def avg_cuda_measurement_parallax(cls):
-        return cls.cuda_avg_ms["parallax"]
+        return cls.__cuda_avg_ms["parallax"]
 
 
 
@@ -102,5 +110,5 @@ class CudaJobTracking(ABC):
 
                 history = cls.__cuda_history[stage]
                 history.append(duration)
-
-                cls.cuda_avg_ms[stage] = sum(history) / len(history)
+                cls.__cuda_last_ms[stage] = duration
+                cls.__cuda_avg_ms[stage] = sum(history) / len(history)

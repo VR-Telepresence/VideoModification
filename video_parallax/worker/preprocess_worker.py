@@ -62,12 +62,6 @@ class PreprocessWorker(BaseWorker[PreprocessJob]):
 
     def __extract_viewport_and_pass_result_gpu(self, job: PreprocessJob):
 
-
-
-        frame_nr = job.frame_nr
-        TotalMeasurement.frame_preproc.start_of_loop()
-        TotalMeasurement.frame_is_read(frame_nr)
-
         with torch.cuda.stream(self._stream):
             logger.debug(f"""
                 {threading.current_thread().name},
@@ -84,14 +78,21 @@ class PreprocessWorker(BaseWorker[PreprocessJob]):
             end.record(self._stream)
             TotalMeasurement.cuda_job_tracking.add_cuda_measurement_preproc(job.frame_nr, start, end)
 
-        TotalMeasurement.frame_is_preproccessed(frame_nr)
-        TotalMeasurement.frame_preproc.end_of_loop()
+
 
 
     def __extract_viewport_and_pass_result(self, job: PreprocessJob):
+        frame_nr = job.frame_nr
+
+        TotalMeasurement.frame_preproc.start_of_loop()
+        TotalMeasurement.frame_is_read(frame_nr)
+
         rotation = self.pose_server.camera_rotation()
         viewport_img = self.extract_viewport(job.frame, rotation.yaw, -rotation.pitch)
-        self.pass_frame_to_parallax_worker(viewport_img, job.frame_nr)
+        self.pass_frame_to_parallax_worker(viewport_img, frame_nr)
+
+        TotalMeasurement.frame_is_preproccessed(frame_nr)
+        TotalMeasurement.frame_preproc.end_of_loop()
 
 
     @override
@@ -115,9 +116,9 @@ class PreprocessWorker(BaseWorker[PreprocessJob]):
         z = max(min(-pos3D.z, max_radius), -max_radius)
 
         pos = getPositionVector(x, y, z, 0, 0, 0, pose_dims=self.pose_dims).unsqueeze(
-            0).to(params.DEVICE)
+            0).to(params.DEVICE, non_blocking=True)
 
-        if params.DEVICE == "cuda":
+        if self._stream is not None:
             ready_event = torch.cuda.Event()
             ready_event.record(self._stream)
         else:
@@ -128,9 +129,10 @@ class PreprocessWorker(BaseWorker[PreprocessJob]):
 
     def extract_viewport(self, frame, yaw, pitch=0, roll=0):
 
+
         frame_tensor = (
                 torch.from_numpy(frame)
-                .to(params.DEVICE)
+                .to(params.DEVICE, non_blocking=True)
                 .permute(2, 0, 1)  # HWC -> CHW
                 .float()
                 / 255.0
@@ -144,6 +146,7 @@ class PreprocessWorker(BaseWorker[PreprocessJob]):
             out_hw=(self.height, self.width),
             mode="bilinear",
         )
+
         # TODO: was this line does again
         img_input = viewport_tensor[[2, 1, 0], :, :].unsqueeze(0)
 

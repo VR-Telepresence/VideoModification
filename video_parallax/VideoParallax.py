@@ -1,3 +1,4 @@
+import sys
 from typing import Final
 
 import cv2
@@ -5,6 +6,8 @@ import cv2
 from video_parallax.detection import create_detector
 from video_parallax.pipeline import Pipeline
 from video_parallax.performance_tracking.time_measuring import TotalMeasurement
+
+sys.setswitchinterval(0.0005)
 
 def build_detector(args):
     if args.detector == "none":

@@ -69,8 +69,7 @@ class ParallaxWorker(BaseWorker[ParallaxJob]):
 
             TotalMeasurement.cuda_job_tracking.add_cuda_measurement_parallax(job.frame_nr, start, end)
 
-        TotalMeasurement.frame_parallax_is_created(job.frame_nr)
-        TotalMeasurement.frame_parallax_creation.end_of_loop()
+
 
     @override
     def _handle_job(self, job: ParallaxJob):
@@ -106,4 +105,7 @@ class ParallaxWorker(BaseWorker[ParallaxJob]):
             torch.cuda.current_stream().synchronize()
 
         predicted_frame = self._cpu_frame.numpy()
+
+        TotalMeasurement.frame_parallax_is_created(job.frame_nr)
+        TotalMeasurement.frame_parallax_creation.end_of_loop()
         self.__handle_result_fn(ParallaxResult(predicted_frame, job.frame_nr))
