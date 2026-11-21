@@ -56,24 +56,25 @@ class VideoParallax:
                 "Could not find camera, check access of the system to the camera.")
 
         frame_nr = 1
-        while cap.isOpened():
-            TotalMeasurement.frame_reading.start_of_loop()
-            ret, frame = cap.read()
-            TotalMeasurement.frame_reading.end_of_loop()
+        try:
+            while cap.isOpened():
+                TotalMeasurement.frame_reading.start_of_loop()
+                ret, frame = cap.read()
+                TotalMeasurement.frame_reading.end_of_loop()
 
-            self.pipeline.queue_job(frame, frame_nr)
+                self.pipeline.queue_job(frame, frame_nr)
 
-            display_frame = self.pipeline.display_frame
-            if display_frame is not None:
-                cv2.imshow("Parallax", display_frame)
-                if cv2.waitKey(1) & 0xFF == ord("q"):
-                    break
+                display_frame = self.pipeline.display_frame
+                if display_frame is not None:
+                    cv2.imshow("Parallax", display_frame)
+                    if cv2.waitKey(1) & 0xFF == ord("q"):
+                        break
 
-            TotalMeasurement.write_summary()
-
-            frame_nr += 1
-
-        # Close the image show frame
-        cv2.destroyAllWindows()
-        self.spout_sender.close()
+                TotalMeasurement.write_summary()
+                frame_nr += 1
+        finally:
+            cap.release()
+            cv2.destroyAllWindows()
+            if self.pipeline.spout_sender is not None:
+                self.pipeline.spout_sender.close()
 
