@@ -53,6 +53,7 @@ class PoseServer(BaseWebsocketServer):
             async for message in websocket:
                 data = json.loads(message)
                 if self.__t <  data.get("t", 0.0):
+                    self.__t = data.get("t", 0.0)
                     self.__x, self.__y, self.__z = data.get("x", 0.0), data.get("y", 0.0), data.get("z", 0.0)
                     self.__yaw, self.__pitch = data.get("yaw", 0.0), data.get("pitch", 0.0)
                 else:
