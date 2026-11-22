@@ -19,6 +19,7 @@ class ParallaxJob(Job):
     pos:torch.Tensor
     frame_nr:int
     ready_event:torch.Event
+    stream:torch.cuda.Stream|None
 
 @dataclass(frozen=True, slots=True)
 class ParallaxResult(Job):
@@ -29,7 +30,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 class ParallaxWorker(BaseWorker[ParallaxJob]):
-    def __init__(self, model, width, height, handle_result_fn:Callable[[ParallaxResult],None], gpu_manager:GPUManager):
+    def __init__(self, model, width, height, handle_result_fn:Callable[[ParallaxResult],None]):
         super().__init__(self.__class__.__name__, Queue(1))
         self.__model = model
         self.__handle_result_fn = handle_result_fn
@@ -40,21 +41,18 @@ class ParallaxWorker(BaseWorker[ParallaxJob]):
             device="cpu",
             pin_memory=torch.cuda.is_available()
         )
-        self.gpu_manager = gpu_manager
 
 
     @override
     def _handle_job(self, job: ParallaxJob):
-        if params.DEVICE == "cpu":
+        if job.stream == None:
             self.__do_inference(job)
-        elif params.DEVICE == "cuda":
-            self.__do_inference_gpu(job)
         else:
-            raise NotImplementedError("Invalid device value")
+            self.__do_inference_gpu(job)
 
 
     def __do_inference_gpu(self, job: ParallaxJob):
-        stream = self.gpu_manager.get_stream()
+        stream = job.stream
         with torch.cuda.stream(stream):
             logger.debug(f"""
                         {threading.current_thread().name},

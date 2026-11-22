@@ -20,7 +20,7 @@ class Pipeline:
             gpu_manager = None
 
         self.postprocess_worker = PostprocessWorker(detector, width, height, self._handle_final_result)
-        self.parallax_worker = ParallaxWorker(parallax_model, width, height, self._to_postprocess, gpu_manager)
+        self.parallax_worker = ParallaxWorker(parallax_model, width, height, self._to_postprocess)
         self.preprocess_worker = PreprocessWorker(pose_dims, width, height, self._to_parallax, gpu_manager)
 
         self.spout_sender = UnitySpoutSender("PVSNetStream")
@@ -31,6 +31,7 @@ class Pipeline:
             pos=result.pos,
             frame_nr=result.frame_nr,
             ready_event=result.ready_event,
+            stream=result.stream
         )
 
         self.parallax_worker.add_job(job)

@@ -28,6 +28,7 @@ class PreprocessResult:
     pos:torch.Tensor
     frame_nr: int
     ready_event: torch.Event
+    stream: torch.cuda.Stream | None
 
 
 logger = logging.getLogger(__name__)
@@ -121,7 +122,7 @@ class PreprocessWorker(BaseWorker[PreprocessJob]):
         else:
             ready_event = None
 
-        self.__handle_result_fn(PreprocessResult(img_input, pos, frame_nr, ready_event))
+        self.__handle_result_fn(PreprocessResult(img_input, pos, frame_nr, ready_event, self._stream))
 
 
     def __extract_viewport(self, frame, yaw, pitch=0, roll=0):
