@@ -14,8 +14,9 @@ if __name__ == "__main__":
     print("CUDA available:", torch.cuda.is_available())
 
     if torch.cuda.is_available():
-        print("GPU:", torch.cuda.get_device_name(0))
-        print("Compute capability:", torch.cuda.get_device_capability(0))
+        for i in range(torch.cuda.device_count()):
+            print(f"GPU {i}:", torch.cuda.get_device_name(i))
+            print("Compute capability:", torch.cuda.get_device_capability(i))
         print("Supported architectures:", torch.cuda.get_arch_list())
 
 

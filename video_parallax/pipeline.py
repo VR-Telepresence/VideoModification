@@ -1,25 +1,29 @@
 from typing import Any
 
+import torch
+
+from video_parallax.gpu_manager import GPUManager
 from video_parallax.performance_tracking.time_measuring import TotalMeasurement
 from video_parallax.spout_sender import UnitySpoutSender
 from video_parallax.worker.postprocess_worker import PostprocessWorker, PostprocessJob, PostprocessResult
 from video_parallax.worker.parallax_worker import ParallaxWorker, ParallaxJob, ParallaxResult
 from video_parallax.worker.preprocess_worker import PreprocessWorker, PreprocessResult, PreprocessJob
+import parameters as params
 
 
 class Pipeline:
     def __init__(self, pose_dims, parallax_model, detector, width, height):
         self.display_frame = None
+        if params.DEVICE == "cuda":
+            gpu_manager = GPUManager()
+        else:
+            gpu_manager = None
 
         self.postprocess_worker = PostprocessWorker(detector, width, height, self._handle_final_result)
-        self.parallax_worker = ParallaxWorker(parallax_model, width, height, self._to_postprocess)
-        self.preprocess_worker = PreprocessWorker(pose_dims, width, height, self._to_parallax)
+        self.parallax_worker = ParallaxWorker(parallax_model, width, height, self._to_postprocess, gpu_manager)
+        self.preprocess_worker = PreprocessWorker(pose_dims, width, height, self._to_parallax, gpu_manager)
 
         self.spout_sender = UnitySpoutSender("PVSNetStream")
-
-
-
-
 
     def _to_parallax(self, result: PreprocessResult) -> None:
         job = ParallaxJob(
@@ -51,3 +55,7 @@ class Pipeline:
 
     def queue_job(self, frame:Any, frame_nr:int) -> None:
         self.preprocess_worker.add_job(PreprocessJob(frame, frame_nr))
+
+
+
+
