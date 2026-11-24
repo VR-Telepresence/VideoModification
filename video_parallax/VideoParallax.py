@@ -88,7 +88,7 @@ class VideoParallax:
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1440)
             cap.set(cv2.CAP_PROP_FPS, 30)
 
-            if cap.isOpened():
+            if cap.isOpened() and i == 0:
                 return cap
             cap.release()
         return None
@@ -116,6 +116,9 @@ class VideoParallax:
                 TotalMeasurement.frame_reading.start_of_loop()
                 ret, frame = cap.read()
                 TotalMeasurement.frame_reading.end_of_loop()
+
+                if not ret or frame is None:
+                    continue
 
                 self.pipeline.queue_job(frame, frame_nr)
 
