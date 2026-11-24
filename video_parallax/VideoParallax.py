@@ -1,6 +1,7 @@
 from typing import Final
 
 import cv2
+import numpy as np
 
 from video_parallax.detection import create_detector
 from video_parallax.pipeline import Pipeline
@@ -31,9 +32,6 @@ class VideoParallax:
             self.ndi = ndi
             self.finder = None
             self.receiver = None
-
-        detector = build_detector(args)
-        self.pipeline = Pipeline(pose_dims, parallax_model, detector, width, height)
             ndi.initialize()
             self.finder = ndi.find_create_v2()
             sources = []
@@ -94,8 +92,8 @@ class VideoParallax:
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1440)
             cap.set(cv2.CAP_PROP_FPS, 30)
 
-            # print(i, cap.isOpened())
-            if cap.isOpened():
+            print(i, cap.isOpened())
+            if cap.isOpened() and i == 0:
                 return cap
             cap.release()
         print("Failed to find camera.")
