@@ -56,4 +56,4 @@ if __name__ == "__main__":
     model.to(params.DEVICE)
     model.eval()
 
-    VideoParallax(model, args, pose_dims).create_parallax_with_cam()
+    VideoParallax(model, args, pose_dims, width, height).create_parallax_with_cam()

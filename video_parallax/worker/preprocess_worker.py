@@ -143,7 +143,7 @@ class PreprocessWorker(BaseWorker[PreprocessJob]):
         )
         viewport_tensor = e2p(
             frame_tensor,
-            fov_deg=(90, 60), #horizontal, vertical
+            fov_deg=(110, 80), #horizontal, vertical
             h_deg=yaw,  # Yaw: center
             v_deg=pitch,  # Pitch: center
             out_hw=(self.height, self.width),

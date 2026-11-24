@@ -16,13 +16,8 @@ def build_detector(args):
     return create_detector(args.detector, only=only, conf=args.det_conf, imgsz=args.det_imgsz)
 
 class VideoParallax:
-    height:Final[int] = 256
-    width:Final[int] = 256
 
-    def __init__(self, parallax_model, args, pose_dims):
-        width = self.width
-        height = self.height
-
+    def __init__(self, parallax_model, args, pose_dims, width, height):
         detector = build_detector(args)
         self.pipeline = Pipeline(pose_dims, parallax_model, detector, width, height)
 

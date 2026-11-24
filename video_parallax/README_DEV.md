@@ -15,6 +15,10 @@ or
 python main.py  --checkpoint .\checkpoint\checkpoint_blender_pvsnet_256x256.pth --detector yolo
 ```
 
+python main.py  --checkpoint .\checkpoint\checkpoint_blender_pvsnet_512x512.pth --detector yolo
+
+
+
 ### Start performance monitoring
 While the main program is running, execute this in another terminal:
 ```bash
