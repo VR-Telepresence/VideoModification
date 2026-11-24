@@ -1,6 +1,8 @@
 from typing import Final
 
 import cv2
+import numpy as np
+import NDIlib as ndi
 
 from video_parallax.detection import create_detector
 from video_parallax.pipeline import Pipeline
@@ -11,6 +13,28 @@ def build_detector(args):
         return None
     only = tuple(s.strip() for s in args.only.split(","))
     return create_detector(args.detector, only=only, conf=args.det_conf, imgsz=args.det_imgsz)
+class NDICapture:
+    """Behaves like cv2.VideoCapture (isOpened/read/release) but reads from NDI."""
+
+    def __init__(self, receiver):
+        self.receiver = receiver
+        self.opened = True
+
+    def isOpened(self):
+        return self.opened
+
+    def read(self):
+        frame_type, video, _audio, _meta = ndi.recv_capture_v2(self.receiver, 1000)
+        if frame_type != ndi.FRAME_TYPE_VIDEO:
+            return False, None
+        frame = np.copy(video.data)  # copy before freeing NDI's buffer
+        ndi.recv_free_video_v2(self.receiver, video)
+        return True, cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
+
+    def release(self):
+        self.opened = False
+        ndi.recv_destroy(self.receiver)
+        ndi.destroy()
 
 class VideoParallax:
     height:Final[int] = 256
@@ -23,8 +47,33 @@ class VideoParallax:
         detector = build_detector(args)
         self.pipeline = Pipeline(pose_dims, parallax_model, detector, width, height)
 
+    def findNdiCap(self):
+        # Connect to the first NDI source found on the network
+        if ndi is None:
+            return None
+        ndi.initialize()
+        finder = ndi.find_create_v2()
+        sources = []
+        for _ in range(3):  # ~6 seconds
+            ndi.find_wait_for_sources(finder, 2000)
+            sources = ndi.find_get_current_sources(finder)
+            if sources:
+                break
+        if not sources:
+            ndi.find_destroy(finder)
+            ndi.destroy()
+            return None
 
-    def findCap(self):
+        print("Connecting to", sources[0].ndi_name)
+        settings = ndi.RecvCreateV3()
+        settings.color_format = ndi.RECV_COLOR_FORMAT_BGRX_BGRA
+        receiver = ndi.recv_create_v3(settings)
+        ndi.recv_connect(receiver, sources[0])
+        ndi.find_destroy(finder)
+        return NDICapture(receiver)
+
+
+    def findUsbCap(self):
         # Establish a connection to the webcam
         for i in range(10):
             cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
@@ -39,12 +88,18 @@ class VideoParallax:
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1440)
             cap.set(cv2.CAP_PROP_FPS, 30)
 
-            # print(i, cap.isOpened())
             if cap.isOpened():
                 return cap
             cap.release()
-        print("Failed to find camera.")
         return None
+
+
+    def findCap(self):
+        # NDI first, USB camera as fallback
+        cap = self.findNdiCap() or self.findUsbCap()
+        if cap is None:
+            print("Failed to find camera.")
+        return cap
 
 
     def create_parallax_with_cam(self):
