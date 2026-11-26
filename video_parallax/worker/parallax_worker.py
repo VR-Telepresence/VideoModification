@@ -5,10 +5,11 @@ from queue import  Queue
 from typing import override, Any, Callable
 
 import torch
+
+from video_parallax.gpu_manager import GPUManager
 from video_parallax.worker.base_worker import BaseWorker
 from video_parallax.performance_tracking.time_measuring import TotalMeasurement
 from video_parallax.worker.base_worker import Job
-from video_parallax.worker.postprocess_worker import PostprocessJob, PostprocessWorker
 import parameters as params
 
 
@@ -18,6 +19,7 @@ class ParallaxJob(Job):
     pos:torch.Tensor
     frame_nr:int
     ready_event:torch.Event
+    stream:torch.cuda.Stream|None
 
 @dataclass(frozen=True, slots=True)
 class ParallaxResult(Job):
@@ -39,47 +41,40 @@ class ParallaxWorker(BaseWorker[ParallaxJob]):
             device="cpu",
             pin_memory=torch.cuda.is_available()
         )
-        if params.DEVICE == "cuda":
-            self._stream = torch.cuda.Stream(device="cuda")
+
+
+    @override
+    def _handle_job(self, job: ParallaxJob):
+        if job.stream == None:
+            self.__do_inference(job)
         else:
-            self._stream = None
+            self.__do_inference_gpu(job)
+
 
     def __do_inference_gpu(self, job: ParallaxJob):
-
-        with torch.cuda.stream(self._stream):
+        stream = job.stream
+        with torch.cuda.stream(stream):
             logger.debug(f"""
                         {threading.current_thread().name},
                         "CUDA stream:",
                         {torch.cuda.current_stream().cuda_stream}"""
                          )
 
-            self._stream.wait_event(job.ready_event)
+            stream.wait_event(job.ready_event)
 
             # Track input tensors' use on this stream
-            job.img.record_stream(self._stream)
-            job.pos.record_stream(self._stream)
+            job.img.record_stream(stream)
+            job.pos.record_stream(stream)
 
             start = torch.cuda.Event(enable_timing=True)
             end = torch.cuda.Event(enable_timing=True)
-            start.record(self._stream)
+            start.record(stream)
 
             self.__do_inference(job)
 
-            end.record(self._stream)
+            end.record(stream)
 
             TotalMeasurement.cuda_job_tracking.add_cuda_measurement_parallax(job.frame_nr, start, end)
-
-        TotalMeasurement.frame_parallax_is_created(job.frame_nr)
-        TotalMeasurement.frame_parallax_creation.end_of_loop()
-
-    @override
-    def _handle_job(self, job: ParallaxJob):
-        if params.DEVICE == "cpu":
-            self.__do_inference(job)
-        elif params.DEVICE == "cuda":
-            self.__do_inference_gpu(job)
-        else:
-            raise NotImplementedError("Invalid device value")
 
     def __do_inference(self, job: ParallaxJob):
         TotalMeasurement.frame_parallax_creation.start_of_loop()
@@ -106,4 +101,7 @@ class ParallaxWorker(BaseWorker[ParallaxJob]):
             torch.cuda.current_stream().synchronize()
 
         predicted_frame = self._cpu_frame.numpy()
+
+        TotalMeasurement.frame_parallax_is_created(job.frame_nr)
+        TotalMeasurement.frame_parallax_creation.end_of_loop()
         self.__handle_result_fn(ParallaxResult(predicted_frame, job.frame_nr))

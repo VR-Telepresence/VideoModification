@@ -39,9 +39,10 @@ class FPSMeasuring:
 
     def result_created(self):
         now = datetime.now()
-        self.__fps = 1.0 / (now - self.__last_result).total_seconds()
+        timediff = (now - self.__last_result).total_seconds()
+        if timediff != 0:
+            self.__fps = 1.0 / timediff
         self.__last_result=now
-
         self.__last_result_timestamps.put(now)
 
     def avg_fps(self):
@@ -141,24 +142,35 @@ class TotalMeasurement:
 
     @classmethod
     def frame_is_preproccessed(cls, n: int):
-        if cls.__frames_read.get(n, None) is not None:
-            cls.__latency_acc_preproc = (datetime.now() - cls.__frames_read.get(n)).total_seconds()
+        seconds_latency = cls.__frame_secs_since_read(n)
+        if seconds_latency is not None:
+            cls.__latency_acc_preproc = seconds_latency
+
+    @classmethod
+    def __frame_secs_since_read(cls, n:int):
+        read_time = cls.__frames_read.get(n, None)
+        if read_time is None:
+            return None
+        return (datetime.now() - read_time).total_seconds()
 
     @classmethod
     def frame_parallax_is_created(cls, n: int):
-        if cls.__frames_read.get(n, None) is not None:
-            cls.__latency_acc_parallax = (datetime.now() - cls.__frames_read.get(n)).total_seconds()
+        seconds_latency = cls.__frame_secs_since_read(n)
+        if seconds_latency is not None:
+            cls.__latency_acc_parallax = seconds_latency
 
 
     @classmethod
     def frame_is_postproccessed(cls, n: int):
-        if cls.__frames_read.get(n, None) is not None:
-            cls.__latency_acc_postproc = (datetime.now() - cls.__frames_read.get(n)).total_seconds()
+        seconds_latency = cls.__frame_secs_since_read(n)
+        if seconds_latency is not None:
+            cls.__latency_acc_postproc = seconds_latency
 
     @classmethod
     def frame_is_send(cls, n:int):
-        if cls.__frames_read.get(n, None) is not None:
-            cls.__total_latency = (datetime.now() - cls.__frames_read.pop(n)).total_seconds()
+        seconds_latency = cls.__frame_secs_since_read(n)
+        if seconds_latency is not None:
+            cls.__total_latency = seconds_latency
 
 
     @classmethod
@@ -176,9 +188,6 @@ class TotalMeasurement:
                 cls.__oldest_frame = __oldest_frame
 
 
-
-
-
     @classmethod
     def write_summary(cls):
         reading = cls.frame_reading
@@ -189,8 +198,8 @@ class TotalMeasurement:
         detection = cls.frame_object_detection
 
         cls.cuda_job_tracking.collect_cuda_measurements()
-        cuda_preproc = cls.cuda_job_tracking.avg_cuda_measurement_preproc()
-        cuda_parallax = cls.cuda_job_tracking.avg_cuda_measurement_parallax()
+        cuda_preproc = cls.cuda_job_tracking.last_cuda_measurement_preproc()
+        cuda_parallax = cls.cuda_job_tracking.last_cuda_measurement_parallax()
 
 
         total_latency = (
@@ -211,9 +220,9 @@ class TotalMeasurement:
         ╠══════════════╦════════════╦════════════════╦══════════════════╦════════════════╣
         ║ Stage        ║ FPS        ║ Latency (ms)   ║ Latency acc (ms) ║ CUDA (ms)      ║
         ╠══════════════╬════════════╬════════════════╬══════════════════╬════════════════╣
-        ║ Preproc      ║ {preproc.avg_fps:>10.2f} ║ {preproc.avg_latency * 1000:>14.2f} ║ {cls.__latency_acc_preproc * 1000:>16.2f} ║ {cuda_preproc:>14.2f} ║
-        ║ Parallax     ║ {parallax.avg_fps:>10.2f} ║ {parallax.avg_latency * 1000:>14.2f} ║ {cls.__latency_acc_parallax * 1000:>16.2f} ║ {cuda_parallax:>14.2f} ║
-        ║ Postproc     ║ {postproc.avg_fps:>10.2f} ║ {postproc.avg_latency * 1000:>14.2f} ║ {cls.__latency_acc_postproc * 1000:>16.2f} ║                ║
+        ║ Preproc      ║ {preproc.avg_fps:>10.2f} ║ {preproc.latency * 1000:>14.2f} ║ {cls.__latency_acc_preproc * 1000:>16.2f} ║ {cuda_preproc:>14.2f} ║
+        ║ Parallax     ║ {parallax.avg_fps:>10.2f} ║ {parallax.latency * 1000:>14.2f} ║ {cls.__latency_acc_parallax * 1000:>16.2f} ║ {cuda_parallax:>14.2f} ║
+        ║ Postproc     ║ {postproc.avg_fps:>10.2f} ║ {postproc.latency * 1000:>14.2f} ║ {cls.__latency_acc_postproc * 1000:>16.2f} ║                ║
         ╚══════════════╩════════════╩════════════════╩══════════════════╩════════════════╝
         ╔═══════════════════════════╦════════════════╗
         ║ TOTAL LATENCY             ║ {cls.__total_latency * 1000:>14.2f} ║

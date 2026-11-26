@@ -37,4 +37,6 @@ class BaseWorker[T:Job](ABC):
 
     def start(self):
         self._thread.start()
+        print(f"[Worker {self.name}] started")
+
 

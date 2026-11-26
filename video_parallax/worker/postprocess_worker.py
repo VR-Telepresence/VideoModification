@@ -3,6 +3,7 @@ from queue import Queue
 from typing import Any, Callable
 import cv2
 from typing_extensions import override
+
 from video_parallax.performance_tracking.time_measuring import TotalMeasurement
 from video_parallax.worker.base_worker import BaseWorker, Job
 from video_parallax.server.segmentation_server import SegmentationServer
