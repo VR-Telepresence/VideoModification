@@ -3,7 +3,7 @@
 ## Installing dependencies
 ```bash
 python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
-pip install gradio , opencv-python, random-fourier-features-pytorch, pytorch360convert, ultralytics
+pip install gradio , opencv-python, random-fourier-features-pytorch, pytorch360convert, ultralytics, ndi-python 
 ```
 
 ## Start Program
