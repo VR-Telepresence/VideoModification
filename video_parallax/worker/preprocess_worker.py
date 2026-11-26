@@ -130,7 +130,7 @@ class PreprocessWorker(BaseWorker[PreprocessJob]):
             self._pinned_frame = torch.empty(
                 frame.shape,
                 dtype=torch.uint8,
-                pin_memory=True
+                pin_memory=True if params.DEVICE == "cuda" else False,
             )
 
         self._pinned_frame.copy_(torch.from_numpy(frame))
