@@ -1,6 +1,5 @@
 from typing import Any
 
-import torch
 
 from video_parallax.gpu_manager import GPUManager
 from video_parallax.performance_tracking.time_measuring import TotalMeasurement

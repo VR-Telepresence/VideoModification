@@ -1,9 +1,8 @@
-import logging
-
 import NDIlib as ndi
 import numpy as np
 import cv2
 
+from video_parallax.logger import get_logger
 from video_parallax.performance_tracking.time_measuring import TotalMeasurement
 
 
@@ -33,10 +32,7 @@ class NDICapture:
 class CameraManager:
     def __init__(self):
         self.cap = self.__findCap()
-        self.logger = logging.Logger(self.__class__.__name__)
-        self.logger.setLevel(logging.DEBUG)
-        self.logger.addHandler(logging.StreamHandler())
-        pass
+        self.logger = get_logger(self.__class__.__name__)
 
     def __findCap(self):
         # NDI first, USB camera as fallback
@@ -104,7 +100,7 @@ class CameraManager:
             TotalMeasurement.frame_reading.end_of_loop()
 
             if not ret or frame is None:
-                self.logger.info("No frame received, waiting for next frame.")
+                self.logger.warning("No frame received, waiting for next frame.")
                 continue
 
             return frame
