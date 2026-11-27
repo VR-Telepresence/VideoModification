@@ -37,7 +37,7 @@ logger.setLevel(logging.INFO)
 
 
 class PreprocessWorker(BaseWorker[PreprocessJob]):
-    def __init__(self, pose_dims, width, height, handle_result_fn:Callable[[PreprocessResult],None], gpu_manager: GPUManager):
+    def __init__(self, pose_dims, width, height, handle_result_fn:Callable[[PreprocessResult],None], gpu_manager: GPUManager|None):
         super().__init__(self.__class__.__name__, Queue(1))
         self.pose_server = PoseServer()
         self.__handle_result_fn = handle_result_fn
@@ -60,14 +60,11 @@ class PreprocessWorker(BaseWorker[PreprocessJob]):
 
     @override
     def _handle_job(self, job: PreprocessJob):
-        if params.DEVICE == "cpu":
-            self.__extract_viewport_and_pass_result(job)
-        elif params.DEVICE == "cuda":
+        if self.gpu_manager is not None:
             self._stream = self.gpu_manager.get_stream()
             self.__extract_viewport_and_pass_result_gpu(job)
         else:
-            raise NotImplementedError("Invalid device value")
-
+            self.__extract_viewport_and_pass_result(job)
 
 
     def __extract_viewport_and_pass_result_gpu(self, job: PreprocessJob):

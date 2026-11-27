@@ -95,6 +95,9 @@ class CameraManager:
 
 
     def get_next_frame(self):
+        if not self.cap.isOpened():
+            self.cap = self.__findCap()
+
         while True:
             TotalMeasurement.frame_reading.start_of_loop()
             ret, frame = self.cap.read()

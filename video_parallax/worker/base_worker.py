@@ -1,7 +1,13 @@
+import logging
+import sys
 import threading
+import traceback
 from abc import abstractmethod, ABC
 
 from queue import Queue
+
+from video_parallax.logger import get_logger
+
 
 class Job:
     pass
@@ -15,6 +21,9 @@ class BaseWorker[T:Job](ABC):
             name=f"Worker: {name}",
             daemon=True,
         )
+        self._logger = get_logger(self.__class__.__name__)
+        self.__stop_scheduled = False
+
 
     def add_job(self, job: T):
         if self.__jobs.full():
@@ -31,12 +40,20 @@ class BaseWorker[T:Job](ABC):
         pass
 
     def __run_worker(self):
-        while True:
-            job = self.__get_next_job()
-            self._handle_job(job)
+        while not self.__stop_scheduled:
+            try:
+                job = self.__get_next_job()
+                self._handle_job(job)
+            except Exception as e:
+                self._logger.error(e)
+                traceback.print_exc()
+
 
     def start(self):
         self._thread.start()
         print(f"[Worker {self.name}] started")
+
+    def stop(self):
+        self.__stop_scheduled=True
 
 

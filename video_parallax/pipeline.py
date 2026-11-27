@@ -47,16 +47,19 @@ class Pipeline:
         self.spout_sender.send_bgr(result.frame)
         TotalMeasurement.frame_is_send(result.frame_nr)
 
-
     def start(self) -> None:
         self.postprocess_worker.start()
         self.parallax_worker.start()
         self.preprocess_worker.start()
-
+        print("Pipeline started")
 
     def queue_job(self, frame:Any, frame_nr:int) -> None:
         self.preprocess_worker.add_job(PreprocessJob(frame, frame_nr))
 
+    def stop(self):
+        self.postprocess_worker.stop()
+        self.parallax_worker.stop()
+        self.preprocess_worker.stop()
 
 
 

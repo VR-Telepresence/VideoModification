@@ -55,6 +55,7 @@ class VideoParallax:
                 frame_nr += 1
         finally:
             self.camera_manager.stop_camera()
+            self.pipeline.stop()
             cv2.destroyAllWindows()
             if self.pipeline.spout_sender is not None:
                 self.pipeline.spout_sender.close()
