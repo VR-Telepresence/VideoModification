@@ -26,8 +26,6 @@ class LatencyAverager:
         return self.__sum / self.__COUNT
 
 
-
-
 class FPSMeasuring:
     def __init__(self):
         self.__fps = 0.0
@@ -115,7 +113,10 @@ class FrameTracker:
 class TotalMeasurement:
     _summary_printed = False
     frame_reading = SingleProcessMeasurements()
+
     frame_preproc = SingleProcessMeasurements()
+    frame_preproc_viewport_extraction = SingleProcessMeasurements()
+
     frame_parallax_creation = SingleProcessMeasurements()
     frame_postprocessing = SingleProcessMeasurements()
     frame_object_detection = SingleProcessMeasurements()
@@ -192,6 +193,7 @@ class TotalMeasurement:
     def write_summary(cls):
         reading = cls.frame_reading
         preproc = cls.frame_preproc
+        viewport = cls.frame_preproc_viewport_extraction
         parallax = cls.frame_parallax_creation
         postproc = cls.frame_postprocessing
         sending = cls.frame_sending
@@ -221,8 +223,9 @@ class TotalMeasurement:
         ║ Stage        ║ FPS        ║ Latency (ms)   ║ Latency acc (ms) ║ CUDA (ms)      ║
         ╠══════════════╬════════════╬════════════════╬══════════════════╬════════════════╣
         ║ Preproc      ║ {preproc.avg_fps:>10.2f} ║ {preproc.latency * 1000:>14.2f} ║ {cls.__latency_acc_preproc * 1000:>16.2f} ║ {cuda_preproc:>14.2f} ║
+        ║  └─ Viewport ║ {viewport.avg_fps:>10.2f} ║ {viewport.latency * 1000:>14.2f} ║ {"":>16} ║ {"":>14} ║
         ║ Parallax     ║ {parallax.avg_fps:>10.2f} ║ {parallax.latency * 1000:>14.2f} ║ {cls.__latency_acc_parallax * 1000:>16.2f} ║ {cuda_parallax:>14.2f} ║
-        ║ Postproc     ║ {postproc.avg_fps:>10.2f} ║ {postproc.latency * 1000:>14.2f} ║ {cls.__latency_acc_postproc * 1000:>16.2f} ║                ║
+        ║ Postproc     ║ {postproc.avg_fps:>10.2f} ║ {postproc.latency * 1000:>14.2f} ║ {cls.__latency_acc_postproc * 1000:>16.2f} ║ {"":>14} ║
         ╚══════════════╩════════════╩════════════════╩══════════════════╩════════════════╝
         ╔═══════════════════════════╦════════════════╗
         ║ TOTAL LATENCY             ║ {cls.__total_latency * 1000:>14.2f} ║
@@ -233,7 +236,7 @@ class TotalMeasurement:
         ╔══════════════╦════════════╦════════════════╗
         ║ Idle reading ║ {reading.avg_fps:>10.2f} ║ {reading.avg_latency * 1000:>14.2f} ║
         ╚══════════════╩════════════╩════════════════╝
-        """
+"""
 
         path = Path("./temp/performance.txt")
         path.parent.mkdir(parents=True, exist_ok=True)

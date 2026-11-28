@@ -26,7 +26,6 @@ class CustomFormatter(logging.Formatter):
         return formatter.format(record)
 
 
-
 def get_logger(name):
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)

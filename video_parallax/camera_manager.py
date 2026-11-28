@@ -1,6 +1,7 @@
 import NDIlib as ndi
 import numpy as np
 import cv2
+from cv2_enumerate_cameras import enumerate_cameras
 
 from video_parallax.logger import get_logger
 from video_parallax.performance_tracking.time_measuring import TotalMeasurement
@@ -44,6 +45,7 @@ class CameraManager:
 
     def __findNdiCap(self):
         # Connect to the first NDI source found on the network
+        print("Looking for NDI camera.")
         if ndi is None:
             return None
         ndi.initialize()
@@ -69,24 +71,27 @@ class CameraManager:
         return NDICapture(receiver)
 
     def __findUsbCap(self):
+        print("Looking for USB camera.")
         # Establish a connection to the webcam
-        for i in range(10):
-            cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
-            # Videoformat setzen
-            cap.set(
-                cv2.CAP_PROP_FOURCC,
-                cv2.VideoWriter_fourcc(*"MJPG")
-            )
+        cameras =  enumerate_cameras(cv2.CAP_DSHOW)
+        for camera_info in enumerate_cameras(cv2.CAP_DSHOW):
+            print(camera_info)
+        cap_index = input("Select camera:")
+        cap = cv2.VideoCapture(cameras[int(cap_index)].index, cv2.CAP_DSHOW)
+        cap.set(
+            cv2.CAP_PROP_FOURCC,
+            cv2.VideoWriter_fourcc(*"MJPG")
+        )
 
-            # 360°-Panorama aktivieren
-            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 2880)
-            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1440)
-            cap.set(cv2.CAP_PROP_FPS, 30)
+        # 360°-Panorama aktivieren
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 2880)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1440)
+        cap.set(cv2.CAP_PROP_FPS, 30)
 
-            if cap.isOpened():
-                print("Using USB")
-                return cap
-            cap.release()
+        if cap.isOpened():
+            print("Using USB")
+            return cap
+
         return None
 
 

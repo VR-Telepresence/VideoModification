@@ -9,7 +9,6 @@ from video_parallax.worker.parallax_worker import ParallaxWorker, ParallaxJob, P
 from video_parallax.worker.preprocess_worker import PreprocessWorker, PreprocessResult, PreprocessJob
 import parameters as params
 
-
 class Pipeline:
     def __init__(self, pose_dims, parallax_model, detector, width, height):
         self.display_frame = None

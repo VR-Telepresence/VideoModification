@@ -94,7 +94,11 @@ class PreprocessWorker(BaseWorker[PreprocessJob]):
         TotalMeasurement.frame_is_read(frame_nr)
 
         rotation = self.pose_server.camera_rotation()
+
+
         viewport_img = self.__extract_viewport(job.frame, rotation.yaw, -rotation.pitch)
+
+
         self.__pass_frame_to_parallax_worker(viewport_img, frame_nr)
 
         TotalMeasurement.frame_is_preproccessed(frame_nr)
@@ -123,6 +127,7 @@ class PreprocessWorker(BaseWorker[PreprocessJob]):
 
 
     def __extract_viewport(self, frame, yaw, pitch=0, roll=0):
+        TotalMeasurement.frame_preproc_viewport_extraction.start_of_loop()
         if self._pinned_frame is None:
             self._pinned_frame = torch.empty(
                 frame.shape,
@@ -150,4 +155,5 @@ class PreprocessWorker(BaseWorker[PreprocessJob]):
         # TODO: was this line does again
         img_input = viewport_tensor[[2, 1, 0], :, :].unsqueeze(0)
         # Wait only for this event's completion
+        TotalMeasurement.frame_preproc_viewport_extraction.end_of_loop()
         return img_input

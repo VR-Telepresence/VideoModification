@@ -42,8 +42,8 @@ class PoseServer(BaseWebsocketServer):
         _logger = logging.getLogger(self.__class__.__name__)
 
         super().__init__(
-            host="0.0.0.0",
-            port="8765",
+            host=self.__HOST,
+            port=self.__PORT,
             name="PoseServer"
         )
 

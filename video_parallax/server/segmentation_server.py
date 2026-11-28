@@ -10,6 +10,9 @@ from video_parallax.server.base_websocket_server import BaseWebsocketServer
 
 
 class SegmentationServer(BaseWebsocketServer):
+    __HOST = "0.0.0.0"
+    __PORT = 8767
+
     def __init__(
         self,
         detector="yolo",
@@ -17,8 +20,6 @@ class SegmentationServer(BaseWebsocketServer):
         classes: tuple[str, ...] = ("person",),
         conf: float = 0.25,
         imgsz: int = 256,
-        host: str = "0.0.0.0",
-        port: str = "8767",
         **detector_kw,
     ):
         self._logger = logging.getLogger(self.__class__.__name__)
@@ -35,7 +36,7 @@ class SegmentationServer(BaseWebsocketServer):
         self._frame_id = 0
         self._lock = threading.Lock()
 
-        super().__init__(host=host, port=port, name="Segmentation-Server")
+        super().__init__(host=self.__HOST, port=self.__PORT, name="Segmentation-Server")
 
     def update_frame(self, frame):
         frame = frame.copy()
